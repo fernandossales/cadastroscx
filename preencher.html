@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preencher no SIMIL</title>
+<style>
+:root{--bg:#f4f5f2;--card:#fff;--ink:#1c2321;--mute:#66706d;--line:#dde1dc;--acc:#0d5c63;--acc-ink:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#121615;--card:#1b2120;--ink:#e7ecea;--mute:#98a3a0;--line:#2c3533;--acc:#4fb3b0;--acc-ink:#062a2c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 16px 60px}
+h1{font-size:26px;margin:0 0 6px}
+.lead{color:var(--mute);margin:0 0 28px}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 14px}
+h2{font-size:17px;margin:0 0 8px}
+ol{margin:6px 0 0;padding-left:22px}li{margin:4px 0}
+.fav{display:inline-block;background:var(--acc);color:var(--acc-ink);text-decoration:none;font-weight:700;padding:10px 16px;border-radius:10px;margin:8px 0;cursor:grab}
+code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 5px;font-size:14px}
+a{color:var(--acc)}
+.mute{color:var(--mute);font-size:14px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Preencher o laudo no SIMIL</h1>
+  <p class="lead">Do JSON exportado no celular para o Laudo de Avaliação › Unidade Isolada Construção, no computador.</p>
+
+  <section>
+    <h2>Instalar (uma vez)</h2>
+    <p>Arraste o botão abaixo para a barra de favoritos do Chrome/Edge:</p>
+    <a class="fav" id="fav" href="#">Cadastro → SIMIL</a>
+    <p class="mute">Para as fotos seguirem sozinhas a cada recarga, instale também o <a href="cadastroscx.user.js">script do Tampermonkey</a> (opcional — sem ele, clique no favorito a cada foto).</p>
+  </section>
+
+  <section>
+    <h2>Usar</h2>
+    <ol>
+      <li>No SIMIL, abra <b>Laudo Avaliação › Unidade Isolada Construção › Criar Laudo</b> (ou abra o laudo pelo Pesquisar).</li>
+      <li>Laudo novo: digite GIHAB, Cód. Solicitante, Ordenador, Ano e Complemento e clique em <b>Gravar</b> — isso libera as abas.</li>
+      <li>Clique no favorito <b>Cadastro → SIMIL</b>. Abre um painel no canto da tela.</li>
+      <li><b>Carregar JSON do celular</b> → escolha o arquivo.</li>
+      <li><b>Preencher campos</b>. O painel lista o que não entrou (opção inexistente, campo bloqueado).</li>
+      <li>Confira as abas e clique em <b>Gravar</b> no SIMIL.</li>
+      <li><b>Enviar fotos</b>. Cada foto recarrega a página; com o Tampermonkey o envio continua sozinho, sem ele clique no favorito de novo.</li>
+    </ol>
+    <p class="mute">O preenchedor nunca clica em Gravar, Finalizar ou Cancelar — só em “Adicionar Foto”.</p>
+  </section>
+
+  <section>
+    <h2>App de campo</h2>
+    <p>No celular: <a href="./">abrir o app</a> e usar “Adicionar à tela inicial”. Funciona sem sinal; os dados ficam no aparelho até exportar o JSON.</p>
+  </section>
+</main>
+<script>
+const base = location.href.replace(/[^/]*$/, '');
+document.getElementById('fav').href = "javascript:(function(){var s=document.createElement('script');s.src='" + base + "simil-preencher.js?v='+Date.now();document.body.appendChild(s);})();";
+document.getElementById('fav').addEventListener('click', e => { e.preventDefault(); alert('Arraste este botão para a barra de favoritos.'); });
+</script>
+</body>
+</html>

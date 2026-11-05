@@ -1,0 +1,10 @@
+{
+  "name": "Cadastro de Campo",
+  "short_name": "Cadastro",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f5f2",
+  "theme_color": "#0d5c63",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
