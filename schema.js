@@ -41,15 +41,9 @@
       ['id_linha', 'Linha', 't', 'linha'],
       ['id_fonte', 'Fonte', 't', 'fonte'],
       ['id_interessado', 'Interessado', 's', 'interessadoAvaliacao', ['Cliente Agência ou de CCA', 'GIHAB', 'Unidade CAIXA', 'Terceiros', 'GEHPA', 'Outros Vide Inform. Complem.']],
-      ['id_contrato', 'Número do contrato', 't', 'numcontrato'],
       ['id_sigilo', 'Grau de sigilo', 's', 'grauSigilo', ['#INTERNO.TODOS', '#INTERNO.CAIXA', '#INTERNO.CONFIDENCIAL', '#PUBLICO', '#EXTERNO.CONFIDENCIAL']],
       ['id_categoria', 'Categoria', 's', 'categoria', ['Casa', 'Village', 'Shopping', 'Galpão', 'Galpão Industrial', 'Loja Prédio', 'Prédio', 'Loja Galpão', 'Outros Vide Inform. Complem.']],
-      ['§', 'Cliente'],
-      ['id_cliente', 'Nome do cliente', 't', 'cliente'],
-      ['id_cpfcnpj', 'CPF ou CNPJ (só números)', 'n', 'inputCpfCnpj'],
-      ['id_cadmun', 'Cadastro municipal (inscrição)', 't', 'cadastro'],
-      ['id_cib', 'Cadastro Imobiliário Brasileiro (CIB)', 't', 'codigoImobiliarioBrasileiro'],
-      ['id_siapf', 'Nº SIAPF', 't', 'numeroSIAPF'],
+      // Nº contrato, nome do cliente, CPF/CNPJ, cadastro municipal, CIB e Nº SIAPF: ficam sempre vazios (não mapeados)
       ['§', 'Endereço do imóvel'],
       ['end_cep', 'CEP', 'n', 'cep'],
       ['end_uf', 'UF', 's', 'uf', UF],
@@ -259,7 +253,10 @@
   const MAX = { os_gihab: 4, os_codsol: 4, id_atividade: 4, id_produto: 4, id_linha: 4, id_fonte: 4, id_contrato: 20, id_cliente: 100, id_cpfcnpj: 14, id_cadmun: 14, id_siapf: 10, end_cep: 8, end_municipio: 45, end_localidade: 55, end_bairro: 45, end_logradouro: 70, end_numero: 8, end_setor: 5, end_quadra: 5, end_bloco: 5, end_lote: 5, end_conjunto: 5, end_unidade: 8, end_tipologia: 5, end_empreend: 100, end_compl: 50, un_vagas_cob: 8, un_vagas_desc: 8, un_pav_ss: 2, un_pav_terreo: 2, un_pav_mez: 2, un_pav_sobre: 2, un_pav_outros: 3, un_pav_cob: 2, eq_armarios: 4, eq_saloes: 4, ar_av_priv: 11, ar_av_desc: 11, ar_av_com: 11, ar_nav_priv: 11, ar_nav_desc: 11, ar_nav_com: 11, ar_descob: 11, te_area: 13, te_testada: 13, te_lados: 100, em_predios: 4, em_unid: 5, em_fracao: 10, em_condom: 10, em_unid_tip: 5, em_adm: 100, em_tel: 20, em_email: 100, em_area: 13, em_testada: 13, re_area: 14, re_produto: 14, re_valor: 14, re_min: 14, re_max: 14, es_justif: 200, doc_mat: 12, doc_oficio: 4, doc_mat_mae: 12, doc_oficio_mae: 4 };
   abas.forEach(a => a.campos.forEach(c => { if (c[0].startsWith('di_') && c[2] === 'n') MAX[c[0]] = 2; }));
 
-  const S = { versao: '2026-11-05', pagina: '/simil/pages/laudo/construcao/cadastrarlaudo.xhtml', abas, AMBIENTES, MAX, FOTO_DESC_MAX: 50 };
+  // valores sempre iguais: não aparecem no app e o preenchedor aplica sempre
+  const FIXOS = { id_interessado: 'Cliente Agência ou de CCA', id_sigilo: '#INTERNO.TODOS' };
+
+  const S = { versao: '2026-11-05b', pagina: '/simil/pages/laudo/construcao/cadastrarlaudo.xhtml', abas, AMBIENTES, MAX, FIXOS, FOTO_DESC_MAX: 50 };
   if (typeof window !== 'undefined') window.SIMIL_SCHEMA = S;
   if (typeof module !== 'undefined') module.exports = S;
 })();

@@ -205,7 +205,7 @@
         if (parar) { log('Parado.', 'av'); return fim(res); }
         if (c[0] === '§') continue;
         if (soOS !== c[0].startsWith('os_')) continue;
-        const v = cad.dados[c[0]];
+        const v = (S.FIXOS && c[0] in S.FIXOS) ? S.FIXOS[c[0]] : cad.dados[c[0]];
         if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length && c[2] !== 'cg' && c[2] !== 'k')) continue;
         log(`… ${a.titulo}: ${c[1]}`);
         try { await preencheCampo(a.id, c, v, res); } catch (err) { res.falta.push(`${a.titulo} › ${c[1]} (erro: ${err.message})`); }

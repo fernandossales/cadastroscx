@@ -62,7 +62,7 @@ const urls = new Map();
 const verEsc = () => localStorage.getItem('cadx-esc') === '1';
 const abasVisiveis = () => S.abas.filter(a => !a.escritorio || verEsc());
 const vazio = v => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && v.lat == null);
-const camposDe = a => a.campos.filter(c => c[0] !== '§');
+const camposDe = a => a.campos.filter(c => c[0] !== '§' && !(c[0] in S.FIXOS));
 const feitos = (a, d = cad.dados) => camposDe(a).filter(c => !vazio(d[c[0]])).length;
 function pct(c) { const as = abasVisiveis(); const t = as.reduce((s, a) => s + camposDe(a).length, 0); const f = as.reduce((s, a) => s + feitos(a, c.dados || {}), 0); return t ? Math.round(f * 100 / t) : 0; }
 
@@ -146,6 +146,7 @@ function render() {
   let box = null;
   for (const c of a.campos) {
     if (c[0] === '§') { m.append(h('h2', {}, c[1])); box = m.appendChild(h('div', { class: 'card' })); continue; }
+    if (c[0] in S.FIXOS) continue;
     if (!box) box = m.appendChild(h('div', { class: 'card' }));
     box.append(campo(c));
   }
