@@ -4,263 +4,108 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0d5c63">
-<title>Cadastro de Campo</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cadastro">
+<link rel="apple-touch-icon" href="icone-180.png">
 <link rel="manifest" href="manifest.json">
+<title>Cadastro de Campo</title>
 <style>
-:root{--bg:#f4f5f2;--card:#fff;--ink:#1c2321;--mute:#66706d;--line:#dde1dc;--acc:#0d5c63;--acc-ink:#fff;--soft:#e3efee;--warn:#9a4a00;--danger:#b3261e}
-@media (prefers-color-scheme:dark){:root{--bg:#121615;--card:#1b2120;--ink:#e7ecea;--mute:#98a3a0;--line:#2c3533;--acc:#4fb3b0;--acc-ink:#062a2c;--soft:#1f3433;--warn:#f0a35c;--danger:#ff8a80}}
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+:root{--bg:#f3f4f1;--card:#fff;--ink:#1b2220;--mute:#65706c;--line:#dce0db;--acc:#0d5c63;--acc-ink:#fff;--soft:#e2eeed;--warn:#8f4500;--danger:#b3261e;--ok:#1b6b3a;--r:14px}
+@media (prefers-color-scheme:dark){:root{--bg:#111514;--card:#1a201f;--ink:#e6ebe9;--mute:#96a19e;--line:#2b3432;--acc:#53b6b2;--acc-ink:#05292b;--soft:#1d3332;--warn:#f0a35c;--danger:#ff8a80;--ok:#7bd49a}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 button,input,select,textarea{font:inherit;color:inherit}
-header{position:sticky;top:0;z-index:5;background:var(--acc);color:var(--acc-ink);padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;display:flex;gap:10px;align-items:center}
-header h1{font-size:17px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-header .st{font-size:12px;opacity:.85}
-.hbtn{background:transparent;border:0;color:inherit;font-size:22px;padding:4px 8px;cursor:pointer}
-main{padding:12px 16px 110px;max-width:760px;margin:0 auto}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:0 0 12px}
-.row{display:flex;gap:10px;align-items:center}
-.grow{flex:1;min-width:0}
-.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:11px 14px;cursor:pointer;min-height:44px}
+button{cursor:pointer}
+.top{position:sticky;top:0;z-index:5;background:var(--acc);color:var(--acc-ink);padding-top:env(safe-area-inset-top)}
+.bar{display:flex;gap:6px;align-items:center;padding:8px 10px 8px 6px;min-height:52px}
+.bar h1{font-size:17px;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .st{font-size:12px;opacity:.85;white-space:nowrap}
+.ib{background:transparent;border:0;color:inherit;font-size:26px;line-height:1;width:44px;height:44px;border-radius:10px}
+.ib:active{background:rgba(255,255,255,.15)}
+.prog{height:3px;background:rgba(255,255,255,.25)}.prog i{display:block;height:100%;background:var(--acc-ink);width:0;transition:width .3s}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 10px;background:var(--bg);scrollbar-width:none;border-bottom:1px solid var(--line)}
+.tabs::-webkit-scrollbar{display:none}
+.chip{flex:none;color:var(--ink);border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 12px;font-size:14px;white-space:nowrap;min-height:36px}
+.chip.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.chip small{opacity:.7;margin-left:5px;font-variant-numeric:tabular-nums}
+main{padding:12px 14px calc(96px + env(safe-area-inset-bottom));max-width:760px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin:0 0 12px}
+h2{font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mute);margin:20px 4px 8px;font-weight:600}
+.f{margin:0 0 16px}.f:last-child{margin-bottom:0}
+.f>label,.f>.lb{display:block;font-size:14px;font-weight:600;margin:0 0 6px}
+.in{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:11px 12px;min-height:46px;font-size:16px}
+textarea.in{min-height:100px;resize:vertical}
+.in:focus{outline:2px solid var(--acc);outline-offset:-1px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 12px;font-size:14.5px;text-align:left;min-height:42px}
+.opt.on{background:var(--soft);border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.opt.on::before{content:"✓ ";color:var(--acc);font-weight:700}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:11px 14px;min-height:46px;font-weight:500}
 .btn.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
 .btn.dan{color:var(--danger)}
-.btn.sm{min-height:36px;padding:6px 10px;font-size:14px}
-.lst-item{display:flex;gap:12px;align-items:center;cursor:pointer}
-.lst-item .t{font-weight:600}
-.lst-item .s{font-size:13px;color:var(--mute)}
-.tabs{position:sticky;top:calc(env(safe-area-inset-top) + 56px);z-index:4;background:var(--bg);display:flex;gap:6px;overflow-x:auto;padding:10px 16px;margin:0 -16px 6px;scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;white-space:nowrap}
-.chip.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
-.chip small{opacity:.75;margin-left:4px}
-h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);margin:18px 2px 8px}
-.f{margin:0 0 14px}
-.f>label,.f>.lb{display:block;font-size:14px;font-weight:600;margin:0 0 6px}
-.f input[type=text],.f input[type=date],.f input[inputmode],.f select,.f textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:11px 12px;min-height:46px}
-.f textarea{min-height:96px;resize:vertical}
-.opts{display:flex;flex-wrap:wrap;gap:6px}
-.opt{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 12px;font-size:14px;cursor:pointer;text-align:left;min-height:42px}
-.opt.on{background:var(--soft);border-color:var(--acc);color:var(--ink);box-shadow:inset 0 0 0 1px var(--acc)}
-.opt.on::before{content:"✓ ";color:var(--acc);font-weight:700}
-.esc{font-size:12px;color:var(--warn);margin:-4px 2px 10px}
-.gps{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.gps .full{grid-column:1/-1}
-.mute{color:var(--mute);font-size:13px}
+.btn.sm{min-height:36px;padding:6px 10px;font-size:14px;border-radius:9px}
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:inherit}
+.row{display:flex;gap:8px;align-items:center}.grow{flex:1;min-width:0}
+.mute{color:var(--mute);font-size:13.5px}
+.lst{display:flex;gap:12px;align-items:center}
+.lst .t{font-weight:600}.lst .s{font-size:13px;color:var(--mute);margin-top:2px}
+.pbar{height:5px;border-radius:9px;background:var(--line);margin-top:8px;overflow:hidden}.pbar i{display:block;height:100%;background:var(--acc)}
+.aviso{background:var(--soft);border-radius:var(--r);padding:12px 14px;font-size:14px;margin:0 0 12px}
+.esc{font-size:13px;color:var(--warn);margin:2px 4px 10px}
+/* GPS */
+.gps{display:grid;gap:10px;border:1px dashed var(--acc);background:var(--soft);border-radius:12px;padding:14px;text-align:left;width:100%}
+.gps .ll{font:600 17px ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+.gps .lugar{font-weight:600}
+.gps .ac{display:flex;gap:8px;flex-wrap:wrap}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:g .8s linear infinite;vertical-align:-3px;margin-right:6px}
+@keyframes g{to{transform:rotate(360deg)}}
+/* fotos */
+.addf{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0 14px}
 .fotos{display:grid;grid-template-columns:1fr;gap:12px}
 @media (min-width:560px){.fotos{grid-template-columns:1fr 1fr}}
-.foto{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.foto img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#000}
+.foto{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.foto .im{position:relative;aspect-ratio:4/3;background:#000}
+.foto img{display:block;width:100%;height:100%;object-fit:cover}
+.foto .stamp{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);color:#fff;font:600 11.5px/1.35 -apple-system,system-ui,sans-serif;padding:6px 8px;white-space:pre-line}
 .foto .b{padding:10px;display:grid;gap:8px}
-.foto select,.foto input{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 10px}
-.foot{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center}
-.foot .btn{flex:1;max-width:360px}
-.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:9;opacity:0;pointer-events:none;transition:opacity .2s}
+.foto .geo{font-size:12.5px;color:var(--mute)}
+.foto .geo.pend{color:var(--warn)}
+/* rodapé */
+.foot{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center}
+.foot .btn{flex:1;max-width:240px}
+/* folha (dialog) */
+dialog{border:0;padding:0;background:transparent;max-width:none;max-height:none;width:100%;height:100%;margin:0}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);color:var(--ink);border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));max-width:620px;margin:0 auto;max-height:85vh;overflow:auto}
+.sheet h3{margin:0 0 6px;font-size:18px}
+.sheet .ac{display:grid;gap:8px;margin-top:14px}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:20;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
 .toast.on{opacity:1}
-.empty{text-align:center;color:var(--mute);padding:30px 10px}
+.empty{text-align:center;color:var(--mute);padding:36px 12px}
 .hidden{display:none!important}
 </style>
 </head>
 <body>
-<header>
-  <button class="hbtn hidden" id="bVoltar" aria-label="Voltar">‹</button>
-  <h1 id="hTitulo">Cadastros de campo</h1>
-  <span class="st" id="hStatus"></span>
-</header>
+<div class="top">
+  <div class="bar">
+    <button class="ib hidden" id="bVoltar" aria-label="Voltar">‹</button>
+    <h1 id="hTitulo">Cadastros de campo</h1>
+    <span class="st" id="hStatus"></span>
+    <button class="ib" id="bMenu" aria-label="Menu">⋯</button>
+  </div>
+  <div class="prog hidden" id="prog"><i></i></div>
+  <nav class="tabs hidden" id="tabs" aria-label="Abas do laudo"></nav>
+</div>
 <main id="main"></main>
 <div class="foot" id="foot"></div>
 <input type="file" id="fCam" accept="image/*" capture="environment" class="hidden">
-<input type="file" id="fGal" accept="image/*" multiple class="hidden">
+<input type="file" id="fAlb" accept="image/*" multiple class="hidden">
 <input type="file" id="fImp" accept=".json,application/json" class="hidden">
-<div class="toast" id="toast"></div>
+<dialog id="dlg"></dialog>
+<div class="toast" id="toast" role="status"></div>
 <script src="schema.js"></script>
-<script>
-const S = window.SIMIL_SCHEMA;
-const $ = (s, el = document) => el.querySelector(s);
-const h = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === 'on') for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn); else if (k === 'class') e.className = v; else if (v !== undefined && v !== null && v !== false) e.setAttribute(k, v === true ? '' : v); } for (const k of kids.flat()) if (k !== null && k !== undefined && k !== false) e.append(k.nodeType ? k : document.createTextNode(k)); return e; };
-const toast = (m) => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2200); };
-
-/* ---------- armazenamento (IndexedDB) ---------- */
-const DB = { db: null,
-  open() { return this.db ? Promise.resolve(this.db) : new Promise((ok, err) => { const r = indexedDB.open('cadastroscx', 1); r.onupgradeneeded = () => r.result.createObjectStore('cad', { keyPath: 'id' }); r.onsuccess = () => ok(this.db = r.result); r.onerror = () => err(r.error); }); },
-  async tx(mode, fn) { const db = await this.open(); return new Promise((ok, err) => { const t = db.transaction('cad', mode); const st = t.objectStore('cad'); const r = fn(st); t.oncomplete = () => ok(r && r.result); t.onerror = () => err(t.error); }); },
-  all() { return this.tx('readonly', s => s.getAll()); },
-  get(id) { return this.tx('readonly', s => s.get(id)); },
-  put(c) { return this.tx('readwrite', s => s.put(c)); },
-  del(id) { return this.tx('readwrite', s => s.delete(id)); },
-};
-if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
-
-/* ---------- estado ---------- */
-let cad = null, aba = 'identificacao', saveT = null;
-const campos = {}; S.abas.forEach(a => a.campos.forEach(c => { if (c[0] !== '§') campos[c[0]] = c; }));
-const vazio = v => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && !v.lat);
-const preenchidos = a => a.campos.filter(c => c[0] !== '§' && !vazio(cad.dados[c[0]])).length;
-const total = a => a.campos.filter(c => c[0] !== '§').length;
-
-function salvar() {
-  cad.atualizado = new Date().toISOString();
-  $('#hStatus').textContent = 'salvando…';
-  clearTimeout(saveT);
-  saveT = setTimeout(async () => { await DB.put(cad); $('#hStatus').textContent = 'salvo ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); atualizaChips(); }, 400);
-}
-const setV = (k, v) => { if (vazio(v)) delete cad.dados[k]; else cad.dados[k] = v; salvar(); };
-
-/* ---------- lista ---------- */
-async function telaLista() {
-  cad = null; history.replaceState(null, '', '#');
-  $('#bVoltar').classList.add('hidden'); $('#hTitulo').textContent = 'Cadastros de campo'; $('#hStatus').textContent = '';
-  const m = $('#main'); m.replaceChildren();
-  const lst = (await DB.all()).sort((a, b) => (b.atualizado || '').localeCompare(a.atualizado || ''));
-  if (!lst.length) m.append(h('div', { class: 'empty' }, 'Nenhum cadastro ainda. Toque em “Novo cadastro” para começar a vistoria.'));
-  for (const c of lst) {
-    const n = Object.keys(c.dados || {}).length, f = (c.fotos || []).length;
-    m.append(h('div', { class: 'card lst-item', on: { click: () => abrir(c.id) } },
-      h('div', { class: 'grow' }, h('div', { class: 't' }, c.titulo || '(sem nome)'), h('div', { class: 's' }, `${n} campos · ${f} fotos · ${new Date(c.atualizado).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`)),
-      h('span', { class: 'mute' }, '›')));
-  }
-  m.append(h('p', { class: 'mute', style: 'text-align:center;margin-top:24px' }, 'Os dados ficam só neste aparelho até você exportar o JSON.'));
-  const foot = $('#foot'); foot.replaceChildren(
-    h('button', { class: 'btn', on: { click: () => $('#fImp').click() } }, 'Importar JSON'),
-    h('button', { class: 'btn pri', on: { click: novo } }, '+ Novo cadastro'));
-}
-async function novo() {
-  const titulo = prompt('Identificação do cadastro (ex.: endereço, cliente ou nº da OS):');
-  if (titulo === null) return;
-  const c = { app: 'cadastroscx', schema: S.versao, id: 'c' + Date.now().toString(36), titulo: titulo.trim(), criado: new Date().toISOString(), atualizado: new Date().toISOString(), dados: { un_data: new Date().toISOString().slice(0, 10) }, fotos: [] };
-  await DB.put(c); abrir(c.id);
-}
-$('#fImp').addEventListener('change', async e => {
-  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  try { const c = JSON.parse(await f.text()); if (c.app !== 'cadastroscx') throw 0; const ex = await DB.get(c.id); if (ex && !confirm('Já existe um cadastro com este código neste aparelho. Substituir?')) return; await DB.put(c); toast('Cadastro importado'); telaLista(); }
-  catch { alert('Arquivo não reconhecido como cadastro deste app.'); }
-});
-
-/* ---------- editor ---------- */
-async function abrir(id) {
-  cad = await DB.get(id); if (!cad) return telaLista();
-  cad.dados = cad.dados || {}; cad.fotos = cad.fotos || [];
-  history.replaceState(null, '', '#' + id);
-  $('#bVoltar').classList.remove('hidden'); $('#hTitulo').textContent = cad.titulo || '(sem nome)'; $('#hStatus').textContent = '';
-  $('#foot').replaceChildren(
-    h('button', { class: 'btn', on: { click: menuCad } }, 'Opções'),
-    h('button', { class: 'btn pri', on: { click: exportar } }, 'Exportar JSON'));
-  render();
-}
-function chips() {
-  const t = h('nav', { class: 'tabs', id: 'tabs' });
-  for (const a of S.abas) t.append(h('button', { class: 'chip' + (aba === a.id ? ' on' : ''), 'data-a': a.id, on: { click: () => { aba = a.id; render(); scrollTo(0, 0); } } }, a.titulo, h('small', {}, `${preenchidos(a)}/${total(a)}`)));
-  t.append(h('button', { class: 'chip' + (aba === 'fotos' ? ' on' : ''), 'data-a': 'fotos', on: { click: () => { aba = 'fotos'; render(); scrollTo(0, 0); } } }, 'Fotos', h('small', {}, String(cad.fotos.length))));
-  return t;
-}
-function atualizaChips() { const t = $('#tabs'); if (!t) return; for (const b of t.children) { const a = S.abas.find(x => x.id === b.dataset.a); b.querySelector('small').textContent = a ? `${preenchidos(a)}/${total(a)}` : String(cad.fotos.length); } }
-function render() {
-  const m = $('#main'); m.replaceChildren(chips());
-  setTimeout(() => $('#tabs .chip.on')?.scrollIntoView({ inline: 'center', block: 'nearest' }), 0);
-  if (aba === 'fotos') return renderFotos(m);
-  const a = S.abas.find(x => x.id === aba);
-  if (a.escritorio) m.append(h('p', { class: 'esc' }, 'Aba normalmente preenchida no escritório — opcional em campo.'));
-  let box = h('div', { class: 'card' }); let temCampo = false;
-  for (const c of a.campos) {
-    if (c[0] === '§') { if (temCampo) m.append(box); m.append(h('h2', {}, c[1])); box = h('div', { class: 'card' }); temCampo = false; continue; }
-    box.append(campo(c)); temCampo = true;
-  }
-  if (temCampo) m.append(box);
-}
-function campo([k, rot, tipo, , opts]) {
-  const v = cad.dados[k]; const id = 'f_' + k;
-  const w = h('div', { class: 'f' });
-  if (tipo === 't' || tipo === 'n' || tipo === 'ac') w.append(h('label', { for: id }, rot), h('input', { id, type: 'text', inputmode: tipo === 'n' ? 'decimal' : null, value: v ?? '', autocomplete: 'off', on: { input: e => setV(k, e.target.value.trim()) } }));
-  else if (tipo === 'a') { const ta = h('textarea', { id, on: { input: e => setV(k, e.target.value) } }); ta.value = v ?? ''; w.append(h('label', { for: id }, rot), ta); }
-  else if (tipo === 'dt') w.append(h('label', { for: id }, rot), h('input', { id, type: 'date', value: v ?? '', on: { change: e => setV(k, e.target.value) } }));
-  else if (tipo === 's') { const s = h('select', { id, on: { change: e => setV(k, e.target.value) } }, h('option', { value: '' }, 'Selecione…'), opts.map(o => h('option', { value: o, selected: o === v }, o))); w.append(h('label', { for: id }, rot), s); }
-  else if (tipo === 'r') { const box = h('div', { class: 'opts', role: 'radiogroup' }); for (const o of opts) box.append(h('button', { type: 'button', class: 'opt' + (o === v ? ' on' : ''), role: 'radio', 'aria-checked': String(o === v), on: { click: e => { const novo = cad.dados[k] === o ? '' : o; setV(k, novo); [...box.children].forEach(b => { const on = b.textContent === novo; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }); } } }, o)); w.append(h('div', { class: 'lb' }, rot), box); }
-  else if (tipo === 'cg' || tipo === 'k') { const lbs = opts.map(o => Array.isArray(o) ? o[1] : o); const box = h('div', { class: 'opts' }); for (const o of lbs) box.append(h('button', { type: 'button', class: 'opt' + ((v || []).includes(o) ? ' on' : ''), 'aria-pressed': String((v || []).includes(o)), on: { click: e => { const cur = new Set(cad.dados[k] || []); cur.has(o) ? cur.delete(o) : cur.add(o); setV(k, lbs.filter(x => cur.has(x))); e.currentTarget.classList.toggle('on'); e.currentTarget.setAttribute('aria-pressed', String(cur.has(o))); } } }, o)); w.append(h('div', { class: 'lb' }, rot), box); }
-  else if (tipo === 'gps') w.append(h('div', { class: 'lb' }, rot), gpsBox(k));
-  return w;
-}
-function gpsBox(k) {
-  const v = cad.dados[k] || {};
-  const lat = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Latitude (ex.: -15.80312)', value: v.lat ?? '', on: { input: () => grava() } });
-  const lon = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Longitude (ex.: -47.88412)', value: v.lon ?? '', on: { input: () => grava() } });
-  const info = h('div', { class: 'mute full' }, v.prec ? `Precisão ±${v.prec} m · ${new Date(v.hora).toLocaleString('pt-BR')}` : 'Fique em frente ao imóvel e capture.');
-  const mapa = h('a', { class: 'mute full', target: '_blank', rel: 'noopener' }, 'Conferir no mapa');
-  const atual = () => { const la = parseFloat(String(lat.value).replace(',', '.')), lo = parseFloat(String(lon.value).replace(',', '.')); mapa.href = `https://www.google.com/maps?q=${la},${lo}`; mapa.classList.toggle('hidden', !(isFinite(la) && isFinite(lo))); };
-  function grava(extra = {}) { const la = String(lat.value).replace(',', '.').trim(), lo = String(lon.value).replace(',', '.').trim(); setV(k, la && lo ? { ...(cad.dados[k] || {}), lat: la, lon: lo, ...extra } : null); atual(); }
-  const bt = h('button', { type: 'button', class: 'btn pri full', on: { click: () => {
-    if (!navigator.geolocation) return alert('GPS indisponível neste navegador.');
-    bt.textContent = 'Lendo GPS…'; bt.disabled = true;
-    navigator.geolocation.getCurrentPosition(p => {
-      lat.value = p.coords.latitude.toFixed(6); lon.value = p.coords.longitude.toFixed(6);
-      const prec = Math.round(p.coords.accuracy); grava({ prec, hora: new Date().toISOString() });
-      info.textContent = `Precisão ±${prec} m · agora`; bt.textContent = 'Capturar novamente'; bt.disabled = false;
-      if (prec > 30) toast(`Precisão baixa (±${prec} m). Tente ao ar livre.`);
-    }, e => { bt.textContent = 'Capturar GPS'; bt.disabled = false; alert('Não foi possível ler o GPS: ' + e.message); }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
-  } } }, v.lat ? 'Capturar novamente' : 'Capturar GPS');
-  atual();
-  return h('div', { class: 'gps' }, bt, lat, lon, info, mapa);
-}
-
-/* ---------- fotos ---------- */
-function renderFotos(m) {
-  m.append(h('div', { class: 'row', style: 'margin:4px 0 12px' },
-    h('button', { class: 'btn pri grow', on: { click: () => $('#fCam').click() } }, '📷 Tirar foto'),
-    h('button', { class: 'btn grow', on: { click: () => $('#fGal').click() } }, 'Da galeria')));
-  if (!cad.fotos.length) { m.append(h('div', { class: 'empty' }, 'Nenhuma foto. Comece pela fachada principal.')); return; }
-  const g = h('div', { class: 'fotos' });
-  cad.fotos.forEach((f, i) => {
-    g.append(h('div', { class: 'foto' }, h('img', { src: f.img, alt: f.amb || 'foto', loading: 'lazy' }),
-      h('div', { class: 'b' },
-        h('select', { 'aria-label': 'Referência da foto', on: { change: e => { f.amb = e.target.value; salvar(); } } }, h('option', { value: '' }, 'Referência da foto…'), S.AMBIENTES.map(a => h('option', { value: a, selected: a === f.amb }, a))),
-        h('input', { type: 'text', maxlength: S.FOTO_DESC_MAX, placeholder: `Descrição (até ${S.FOTO_DESC_MAX} letras)`, value: f.desc || '', on: { input: e => { f.desc = e.target.value; salvar(); } } }),
-        h('div', { class: 'row' },
-          h('span', { class: 'mute grow' }, `#${i + 1}`),
-          h('button', { class: 'btn sm', disabled: i === 0, on: { click: () => { cad.fotos.splice(i - 1, 0, cad.fotos.splice(i, 1)[0]); salvar(); render(); } } }, '↑'),
-          h('button', { class: 'btn sm', disabled: i === cad.fotos.length - 1, on: { click: () => { cad.fotos.splice(i + 1, 0, cad.fotos.splice(i, 1)[0]); salvar(); render(); } } }, '↓'),
-          h('button', { class: 'btn sm dan', on: { click: () => { if (confirm('Excluir esta foto?')) { cad.fotos.splice(i, 1); salvar(); render(); } } } }, 'Excluir')))));
-  });
-  m.append(g);
-}
-async function reduz(file, max = 1600, q = 0.82) {
-  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => null);
-  const src = bmp || await new Promise((ok, err) => { const i = new Image(); i.onload = () => ok(i); i.onerror = err; i.src = URL.createObjectURL(file); });
-  const w = src.width, hh = src.height, r = Math.min(1, max / Math.max(w, hh));
-  const c = document.createElement('canvas'); c.width = Math.round(w * r); c.height = Math.round(hh * r);
-  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
-  return c.toDataURL('image/jpeg', q);
-}
-async function addFotos(files) {
-  if (!cad || !files.length) return;
-  const sugest = ['Fachada Principal', 'Logradouro', 'Identificação do Imóvel'];
-  for (const f of files) {
-    try { const img = await reduz(f); const amb = cad.fotos.length < sugest.length ? sugest[cad.fotos.length] : ''; cad.fotos.push({ amb, desc: '', img, hora: new Date().toISOString() }); }
-    catch { toast('Não foi possível ler uma das imagens'); }
-  }
-  salvar(); aba = 'fotos'; render(); toast(files.length > 1 ? `${files.length} fotos adicionadas` : 'Foto adicionada');
-}
-$('#fCam').addEventListener('change', e => { addFotos([...e.target.files]); e.target.value = ''; });
-$('#fGal').addEventListener('change', e => { addFotos([...e.target.files]); e.target.value = ''; });
-
-/* ---------- exportar / opções ---------- */
-async function exportar() {
-  await DB.put(cad);
-  const semAmb = cad.fotos.filter(f => !f.amb).length;
-  if (semAmb && !confirm(`${semAmb} foto(s) sem referência. Exportar mesmo assim?`)) return;
-  const nome = 'cadastro-' + (cad.titulo || cad.id).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w-]+/g, '_').slice(0, 40) + '-' + new Date().toISOString().slice(0, 10) + '.json';
-  const blob = new Blob([JSON.stringify(cad)], { type: 'application/json' });
-  const file = new File([blob], nome, { type: 'application/json' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: nome }); return; } catch (e) { if (e.name === 'AbortError') return; } }
-  const a = h('a', { href: URL.createObjectURL(blob), download: nome }); document.body.append(a); a.click(); a.remove();
-  toast('JSON salvo em Downloads');
-}
-function menuCad() {
-  const op = prompt('Opções:\n1 – Renomear\n2 – Excluir cadastro\n\nDigite o número:');
-  if (op === '1') { const t = prompt('Nova identificação:', cad.titulo); if (t !== null) { cad.titulo = t.trim(); $('#hTitulo').textContent = cad.titulo; salvar(); } }
-  if (op === '2' && confirm('Excluir este cadastro e todas as fotos deste aparelho? Exporte antes se precisar.')) DB.del(cad.id).then(telaLista);
-}
-$('#bVoltar').addEventListener('click', () => { clearTimeout(saveT); (cad ? DB.put(cad) : Promise.resolve()).then(telaLista); });
-document.addEventListener('visibilitychange', () => { if (document.hidden && cad) DB.put(cad); });
-
-const ini = location.hash.slice(1); ini ? abrir(ini) : telaLista();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-</script>
+<script src="geo.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

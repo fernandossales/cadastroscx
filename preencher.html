@@ -48,8 +48,19 @@ a{color:var(--acc)}
   </section>
 
   <section>
-    <h2>App de campo</h2>
-    <p>No celular: <a href="./">abrir o app</a> e usar “Adicionar à tela inicial”. Funciona sem sinal; os dados ficam no aparelho até exportar o JSON.</p>
+    <h2>Automático com o Claude (escritório)</h2>
+    <p>Com a skill <code>simil-laudo</code> instalada no Claude Code, basta pedir: <i>“preencha no SIMIL o cadastro-xxx.json”</i>. O Claude abre o laudo no seu Chrome (já logado), carrega o JSON, preenche, e envia as fotos — e pergunta antes de clicar em Gravar.</p>
+    <p class="mute">A skill fica em <code>SKILL-simil-laudo.md</code> neste repositório; copie para <code>%USERPROFILE%\.claude\skills\simil-laudo\SKILL.md</code>.</p>
+  </section>
+
+  <section>
+    <h2>App de campo (iPhone)</h2>
+    <ol>
+      <li>No Safari, abra <a href="./">o app</a> › Compartilhar › <b>Adicionar à Tela de Início</b> (evita o iPhone apagar os dados e abre sem sinal).</li>
+      <li>Permita a <b>localização</b> quando pedir. A coordenada é registrada sozinha ao abrir o cadastro.</li>
+      <li>Fotos pela <b>Câmera</b> ou do <b>Álbum</b>: cada uma recebe data, coordenada e município–UF (do GPS da foto, se houver; senão, do aparelho).</li>
+      <li><b>Exportar</b> › “Salvar em Arquivos” (iCloud Drive), AirDrop ou e-mail. <b>Carregar JSON</b> abre um cadastro exportado em outro aparelho.</li>
+    </ol>
   </section>
 </main>
 <script>

@@ -1,14 +1,22 @@
 /* Preenchedor do SIMIL a partir do JSON do app de campo (cadastroscx).
    Roda dentro de https://www.simil.caixa.gov.br — Laudo de Avaliação » Unidade Isolada Construção.
-   Carregado pelo favorito (bookmarklet) ou pelo script do Tampermonkey. Não clica em Gravar/Finalizar. */
+   Carregado pelo favorito, pelo Tampermonkey ou pela skill simil-laudo (Claude no Chrome).
+   Nunca clica em Gravar, Finalizar ou Cancelar — só em "Adicionar Foto".
+
+   API para automação (window.__cadx):
+     carregar(obj)        -> carrega um cadastro (objeto JSON)
+     preencher()          -> inicia o preenchimento e volta na hora; acompanhe com estado()
+     enviarFotos(auto)    -> envia a próxima foto (a página recarrega); com auto=true segue a cada recarga
+     estado()             -> { versao, tela, laudo, abasLiberadas, cad, fase, resultado, fila, log } */
 (function () {
   if (window.__cadx) { window.__cadx.abrir(); return; }
+  const VERSAO = '2.0';
   const BASE = (document.currentScript && document.currentScript.src || 'https://fernandossales.github.io/cadastroscx/simil-preencher.js').replace(/simil-preencher\.js.*$/, '');
   const ESPERA_AJAX = 15000;
 
   /* ---------- utilidades ---------- */
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').replace(/[.\s]+$/, '').trim();
+  const norm = s => String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').replace(/[.\s]+$/, '').trim();
   const painel = aba => document.getElementById('formCadastro-tab-' + aba);
   const ajaxAtivo = () => {
     const jq = window.jQuery ? jQuery.active : 0;
@@ -31,7 +39,6 @@
   const bloqueado = e => e.disabled || e.readOnly || e.getAttribute('aria-disabled') === 'true';
   const ev = (e, tipo) => e.dispatchEvent(tipo.startsWith('key') ? new KeyboardEvent(tipo, { bubbles: true, key: '0' }) : new Event(tipo, { bubbles: true }));
   const dataBR = v => /^\d{4}-\d{2}-\d{2}$/.test(v) ? v.split('-').reverse().join('/') : v;
-
   function escreve(e, v) {
     e.focus(); e.value = v;
     ['input', 'keyup', 'change'].forEach(t => ev(e, t));
@@ -48,7 +55,7 @@
 
   /* ---------- interface ---------- */
   const css = `
-  #cadx{position:fixed;right:16px;bottom:16px;z-index:2147483000;width:360px;max-height:80vh;display:flex;flex-direction:column;background:#fff;color:#1c2321;border:1px solid #c9d1ce;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18);font:13px/1.4 system-ui,"Segoe UI",sans-serif}
+  #cadx{position:fixed;right:16px;bottom:16px;z-index:2147483000;width:370px;max-height:82vh;display:flex;flex-direction:column;background:#fff;color:#1c2321;border:1px solid #c9d1ce;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18);font:13px/1.4 system-ui,"Segoe UI",sans-serif}
   #cadx *{box-sizing:border-box;font-family:inherit}
   #cadx .hd{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#0d5c63;color:#fff;border-radius:12px 12px 0 0;cursor:move}
   #cadx .hd b{flex:1;font-size:14px}
@@ -59,7 +66,7 @@
   #cadx .bt:disabled{opacity:.45;cursor:default}
   #cadx .info{background:#eef4f3;border-radius:8px;padding:8px 10px}
   #cadx .info b{display:block}
-  #cadx .log{background:#f7f7f5;border:1px solid #e3e6e3;border-radius:8px;padding:8px;max-height:220px;overflow:auto;font:11.5px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap}
+  #cadx .log{background:#f7f7f5;border:1px solid #e3e6e3;border-radius:8px;padding:8px;max-height:230px;overflow:auto;font:11.5px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap}
   #cadx .log .er{color:#b3261e}#cadx .log .av{color:#9a4a00}#cadx .log .ok{color:#1b6b3a}
   #cadx label{display:flex;gap:6px;align-items:center}
   #cadx-pill{position:fixed;right:16px;bottom:16px;z-index:2147483000;background:#0d5c63;color:#fff;border:0;border-radius:999px;padding:9px 14px;font:600 13px system-ui;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.2)}`;
@@ -71,24 +78,25 @@
     <button class="bt" data-a="carregar">1 · Carregar JSON do celular</button>
     <button class="bt pri" data-a="preencher" disabled>2 · Preencher campos</button>
     <button class="bt" data-a="fotos" disabled>3 · Enviar fotos</button>
+    <label><input type="checkbox" id="cadx-carimbo" checked> carimbar data, coordenada e município nas fotos</label>
     <label><input type="checkbox" id="cadx-auto" checked> continuar as fotos sozinho a cada recarga</label>
     <button class="bt" data-a="parar">Parar</button>
     <button class="bt" data-a="verificar">Verificar mapeamento dos campos</button>
     <div class="log" id="cadx-log"></div>
   </div>`;
   const pill = document.createElement('button'); pill.id = 'cadx-pill'; pill.textContent = 'Cadastro de campo';
-  const arq = document.createElement('input'); arq.type = 'file'; arq.accept = '.json,application/json'; arq.style.display = 'none';
+  const arq = document.createElement('input'); arq.type = 'file'; arq.accept = '.json,application/json'; arq.id = 'cadx-arquivo'; arq.setAttribute('aria-label', 'cadx arquivo json'); arq.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px';
   document.body.append(box, pill, arq);
   const $ = s => box.querySelector(s);
   const logEl = $('#cadx-log');
   const log = (m, c = '') => { const d = document.createElement('div'); if (c) d.className = c; d.textContent = m; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; };
   const mostrar = aberto => { box.style.display = aberto ? 'flex' : 'none'; pill.style.display = aberto ? 'none' : 'block'; };
   pill.onclick = () => mostrar(true);
-  // arrastar
   (() => { const hd = $('.hd'); let ox, oy, arr = false; hd.addEventListener('mousedown', e => { if (e.target.tagName === 'BUTTON') return; arr = true; const r = box.getBoundingClientRect(); ox = e.clientX - r.left; oy = e.clientY - r.top; e.preventDefault(); }); addEventListener('mousemove', e => { if (!arr) return; box.style.left = (e.clientX - ox) + 'px'; box.style.top = (e.clientY - oy) + 'px'; box.style.right = 'auto'; box.style.bottom = 'auto'; }); addEventListener('mouseup', () => arr = false); })();
 
-  let S = null, cad = null, parar = false;
+  let S = null, G = null, cad = null, parar = false, fase = 'parado', ultimo = null;
   const naTelaDoLaudo = () => !!document.getElementById('formCadastro-tab-identificacao');
+  const abasLiberadas = () => naTelaDoLaudo() && document.querySelectorAll('.ui-tabs-nav li.aba.ui-state-disabled').length <= 1;
   const osDaTela = () => { const v = s => (document.querySelector('#formCadastro-tab-identificacao input[id*="' + s + '"]') || {}).value || ''; return [v('gihabGidur_os'), v('codSolicitante_os'), v('ordenador_os'), v('numeroAnoAutorizacao_os'), v('complementoAS_os'), v('sequencial_os'), v('versao_os')].join('.'); };
 
   function atualizaInfo(fila) {
@@ -97,10 +105,11 @@
     const n = Object.keys(cad.dados || {}).length, f = (cad.fotos || []).length;
     i.innerHTML = '';
     const b = document.createElement('b'); b.textContent = cad.titulo || cad.id; i.appendChild(b);
-    i.appendChild(document.createTextNode(`${n} campos · ${f} fotos` + (fila ? ` · fotos enviadas: ${fila.prox}/${f}` : '')));
+    i.appendChild(document.createTextNode(`${n} campos · ${f} fotos` + (fila && fila.cad === cad.id ? ` · fotos enviadas: ${fila.prox}/${f}` : '')));
     $('[data-a=preencher]').disabled = !naTelaDoLaudo();
-    $('[data-a=fotos]').disabled = !naTelaDoLaudo() || !f;
-    $('[data-a=fotos]').textContent = fila && fila.prox > 0 && fila.prox < f ? `3 · Continuar fotos (${fila.prox + 1} de ${f})` : `3 · Enviar fotos (${f})`;
+    $('[data-a=preencher]').textContent = naTelaDoLaudo() && !abasLiberadas() ? '2 · Preencher OS (laudo novo)' : '2 · Preencher campos';
+    $('[data-a=fotos]').disabled = !abasLiberadas() || !f;
+    $('[data-a=fotos]').textContent = fila && fila.cad === cad.id && fila.prox > 0 && fila.prox < f ? `3 · Continuar fotos (${fila.prox + 1} de ${f})` : `3 · Enviar fotos (${f})`;
   }
 
   /* ---------- preencher ---------- */
@@ -150,10 +159,11 @@
     const e = achar(aba, sel);
     if (!e) { (k.startsWith('os_') ? res.pulo : res.falta).push(nome); return; }
     if (tipo === 's') {
-      if (e.disabled) { res.bloq.push(nome); return; }
       const op = [...e.options].find(o => norm(o.textContent) === norm(v)) || [...e.options].find(o => norm(o.textContent).startsWith(norm(v)));
       if (!op) { res.opc.push(`${nome}: "${v}"`); return; }
-      if (e.value !== op.value) { e.value = op.value; ev(e, 'change'); if (window.jQuery) jQuery(e).trigger('chosen:updated').trigger('liszt:updated'); await ocioso(); }
+      if (e.value === op.value) { res.ok++; return; }
+      if (e.disabled) { (e.value ? res.pulo : res.bloq).push(nome); return; }
+      e.value = op.value; ev(e, 'change'); if (window.jQuery) jQuery(e).trigger('chosen:updated').trigger('liszt:updated'); await ocioso();
       res.ok++; return;
     }
     if (tipo === 'ac') {
@@ -165,9 +175,8 @@
       if (item) { item.click(); await ocioso(); res.ok++; } else res.opc.push(`${nome}: sugestão "${v}" não apareceu`);
       return;
     }
-    // texto, número, data, texto longo
     if (tipo === 'dt') { if (e.disabled) { res.bloq.push(nome); return; } e.value = dataBR(v); ev(e, 'change'); res.ok++; return; }
-    if (bloqueado(e)) { if (k.startsWith('os_')) res.pulo.push(nome); else res.bloq.push(nome); return; }
+    if (bloqueado(e)) { (k.startsWith('os_') || e.value ? res.pulo : res.bloq).push(nome); return; }
     let val = String(v);
     if (k === 'id_cpfcnpj') {
       val = val.replace(/\D/g, '');
@@ -180,21 +189,22 @@
     if (e.maxLength > 0 && val.length > e.maxLength) { res.opc.push(`${nome}: cortado em ${e.maxLength} caracteres`); val = val.slice(0, e.maxLength); }
     if (e.value === val) { res.ok++; return; }
     escreve(e, val);
-    await ocioso(k === 'end_cep' ? 1200 : 120);
+    await ocioso(k === 'end_cep' ? 1500 : 120);
     res.ok++;
   }
 
   async function preencher() {
-    if (!cad) return log('Carregue o JSON primeiro.', 'er');
-    if (!naTelaDoLaudo()) return log('Abra a tela do laudo (Criar ou Pesquisar Laudo › editar) antes.', 'er');
-    parar = false; logEl.textContent = '';
-    const abasOff = [...document.querySelectorAll('.ui-tabs-nav li.aba.ui-state-disabled')].length;
-    if (abasOff > 1) log('As abas ainda estão bloqueadas: preencho a OS; depois clique em Gravar no SIMIL e rode "Preencher" de novo.', 'av');
-    const res = { ok: 0, falta: [], opc: [], bloq: [], pulo: [] };
+    if (!cad) { log('Carregue o JSON primeiro.', 'er'); return null; }
+    if (!naTelaDoLaudo()) { log('Abra a tela do laudo (Criar ou Pesquisar Laudo › editar) antes.', 'er'); return null; }
+    parar = false; fase = 'preenchendo'; logEl.textContent = '';
+    const soOS = !abasLiberadas();
+    if (soOS) log('Laudo novo: preencho a OS. Depois clique em GRAVAR no SIMIL e rode “Preencher campos” de novo.', 'av');
+    const res = { ok: 0, falta: [], opc: [], bloq: [], pulo: [], soOS };
     for (const a of S.abas) {
       for (const c of a.campos) {
         if (parar) { log('Parado.', 'av'); return fim(res); }
         if (c[0] === '§') continue;
+        if (soOS !== c[0].startsWith('os_')) continue;
         const v = cad.dados[c[0]];
         if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length && c[2] !== 'cg' && c[2] !== 'k')) continue;
         log(`… ${a.titulo}: ${c[1]}`);
@@ -202,7 +212,7 @@
         logEl.lastChild.remove();
       }
     }
-    fim(res);
+    return fim(res);
   }
   function fim(res) {
     log(`✔ ${res.ok} campos preenchidos.`, 'ok');
@@ -210,39 +220,43 @@
     res.opc.forEach(x => log('Opção: ' + x, 'av'));
     res.bloq.forEach(x => log('Bloqueado no SIMIL: ' + x, 'av'));
     res.falta.forEach(x => log('Não encontrado: ' + x, 'er'));
-    log('Confira as abas e clique em GRAVAR no SIMIL. Depois envie as fotos.', 'ok');
+    log(res.soOS ? 'Clique em GRAVAR para liberar as abas.' : 'Confira as abas e clique em GRAVAR no SIMIL. Depois envie as fotos.', 'ok');
+    fase = 'concluido'; ultimo = res; atualizaInfo(null);
+    return res;
   }
 
   /* ---------- fotos ---------- */
-  function dataURLparaArquivo(url, nome) {
-    const [cab, b64] = url.split(','); const mime = (cab.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
-    const bin = atob(b64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-    return new File([u8], nome, { type: mime });
+  async function arquivoDaFoto(f, i) {
+    const nome = `foto_${String(i + 1).padStart(2, '0')}.jpg`;
+    let blob = G.dataURLparaBlob(f.img);
+    if ($('#cadx-carimbo').checked) { const l = G.linhasCarimbo(f); if (l.length) blob = await G.carimbar(blob, l); }
+    return new File([blob], nome, { type: 'image/jpeg' });
   }
   async function enviaFoto() {
     if (!cad || !cad.fotos || !cad.fotos.length) return log('Sem fotos no cadastro.', 'er');
-    if (!naTelaDoLaudo()) return log('Abra a tela do laudo primeiro.', 'er');
+    if (!abasLiberadas()) return log('Grave o laudo (OS) antes de enviar fotos.', 'er');
     let fila = await KV.get('fila');
     const os = osDaTela();
     if (!fila || fila.cad !== cad.id || fila.os !== os) fila = { cad: cad.id, os, prox: 0, ativo: true };
-    if (fila.prox >= cad.fotos.length) { log('Todas as fotos já foram enviadas para este laudo.', 'ok'); fila.ativo = false; await KV.set('fila', fila); return atualizaInfo(fila); }
-    if (window.is_dirty && fila.prox === 0 && !confirm('Há alterações não gravadas. Enviar a foto também submete o formulário. Continuar?')) return;
+    if (fila.prox >= cad.fotos.length) { log('Todas as fotos já foram enviadas para este laudo.', 'ok'); fila.ativo = false; fase = 'concluido'; await KV.set('fila', fila); return atualizaInfo(fila); }
     const i = fila.prox, f = cad.fotos[i];
+    if (!f.img) { log(`Foto ${i + 1} sem imagem no JSON — pulada.`, 'av'); fila.prox++; await KV.set('fila', fila); return enviaFoto(); }
     const P = painel('foto');
     const sel = achar('foto', 'ambienteFoto'), desc = achar('foto', 'outros'), inp = achar('foto', 'foto_firefox');
     const bt = P && P.querySelector('[id$="botaoAdicionarFotos"]');
     if (!sel || !inp || !bt) { log('Campos da aba Fotos não encontrados.', 'er'); return; }
     const op = [...sel.options].find(o => norm(o.textContent) === norm(f.amb || 'Outros, Vide Inf. Compl.'));
     if (!op) { log(`Foto ${i + 1}: referência "${f.amb}" não existe no SIMIL.`, 'er'); return; }
+    fase = 'fotos';
     sel.value = op.value; ev(sel, 'change'); await ocioso();
     if (desc) escreve(desc, (f.desc || '').slice(0, desc.maxLength > 0 ? desc.maxLength : 50));
-    const nomeArq = `foto_${String(i + 1).padStart(2, '0')}.jpg`;
-    const dt = new DataTransfer(); dt.items.add(dataURLparaArquivo(f.img, nomeArq));
+    const file = await arquivoDaFoto(f, i);
+    const dt = new DataTransfer(); dt.items.add(file);
     inp.files = dt.files; ev(inp, 'change');
-    const falso = P.querySelector('[id$="file-falso"],[name$="file-falso"]'); if (falso) falso.value = nomeArq;
+    const falso = P.querySelector('[id$="file-falso"],[name$="file-falso"]'); if (falso) falso.value = file.name;
     fila.prox = i + 1; fila.ativo = $('#cadx-auto').checked && fila.prox < cad.fotos.length; await KV.set('fila', fila);
-    log(`Enviando foto ${i + 1}/${cad.fotos.length} (${f.amb})… a página vai recarregar.`);
-    if (!window.CADX_MODO) log('Depois da recarga, clique no favorito de novo para seguir.', 'av');
+    log(`Enviando foto ${i + 1}/${cad.fotos.length} (${f.amb || 'Outros'})… a página vai recarregar.`);
+    if (!window.CADX_MODO && fila.ativo) log('Depois da recarga, clique no favorito de novo para seguir.', 'av');
     await sleep(300);
     bt.click();
   }
@@ -250,10 +264,10 @@
     const fila = await KV.get('fila');
     atualizaInfo(fila);
     if (!fila || !fila.ativo || !cad || fila.cad !== cad.id) return false;
-    if (osDaTela() !== fila.os) { log('Laudo na tela é outro — envio de fotos pausado.', 'av'); return false; }
+    if (osDaTela() !== fila.os) { log('O laudo na tela é outro — envio de fotos pausado.', 'av'); return false; }
     const erro = [...document.querySelectorAll('.ui-messages-error,.ui-message-error,.alert-error')].map(e => e.textContent.trim()).filter(Boolean).join(' / ');
-    if (erro) { fila.prox = Math.max(0, fila.prox - 1); fila.ativo = false; await KV.set('fila', fila); mostrar(true); log('O SIMIL recusou a última foto: ' + erro, 'er'); atualizaInfo(fila); return true; }
-    mostrar(true); log(`Foto ${fila.prox} enviada. Seguindo…`, 'ok');
+    if (erro) { fila.prox = Math.max(0, fila.prox - 1); fila.ativo = false; fase = 'erro'; await KV.set('fila', fila); mostrar(true); log('O SIMIL recusou a última foto: ' + erro, 'er'); atualizaInfo(fila); return true; }
+    mostrar(true); log(`Foto ${fila.prox} enviada. Seguindo…`, 'ok'); fase = 'fotos';
     await sleep(1200);
     if (!parar) enviaFoto();
     return true;
@@ -272,6 +286,18 @@
     }
     log(`${ok} campos encontrados.`, 'ok'); ruins.forEach(r => log('Não achei: ' + r, 'er'));
     if (!ruins.length) log('Mapeamento conferido com esta versão do SIMIL.', 'ok');
+    return { ok, faltando: ruins };
+  }
+
+  /* ---------- carregar ---------- */
+  async function carregar(c) {
+    if (!c || c.app !== 'cadastroscx' || (!c.dados && !c.backup)) throw new Error('não é um cadastro do app de campo');
+    if (c.backup) throw new Error('é um backup com vários cadastros — exporte só o cadastro desejado no app');
+    cad = c; await KV.set('cad', c); await KV.set('fila', null);
+    logEl.textContent = ''; log(`Carregado: ${c.titulo || c.id}`, 'ok');
+    if (c.schema && c.schema !== S.versao) log(`Cadastro feito com mapa ${c.schema}; preenchedor usa ${S.versao}.`, 'av');
+    fase = 'parado'; ultimo = null; atualizaInfo(null);
+    return { titulo: c.titulo, campos: Object.keys(c.dados).length, fotos: (c.fotos || []).length };
   }
 
   /* ---------- ações ---------- */
@@ -280,36 +306,36 @@
     if (ac === 'min') mostrar(false);
     if (ac === 'carregar') arq.click();
     if (ac === 'preencher') { a.disabled = true; try { await preencher(); } finally { a.disabled = false; } }
-    if (ac === 'fotos') { const fila = await KV.get('fila'); if (fila && fila.cad === cad.id) { fila.ativo = $('#cadx-auto').checked; await KV.set('fila', fila); } enviaFoto(); }
-    if (ac === 'parar') { parar = true; const fila = await KV.get('fila'); if (fila) { fila.ativo = false; await KV.set('fila', fila); } log('Parado.', 'av'); }
+    if (ac === 'fotos') api.enviarFotos($('#cadx-auto').checked);
+    if (ac === 'parar') { parar = true; const fila = await KV.get('fila'); if (fila) { fila.ativo = false; await KV.set('fila', fila); } log('Parado.', 'av'); fase = 'parado'; }
     if (ac === 'verificar') verificar();
   });
   arq.addEventListener('change', async () => {
     const f = arq.files[0]; arq.value = ''; if (!f) return;
-    try {
-      const c = JSON.parse(await f.text());
-      if (c.app !== 'cadastroscx' || !c.dados) throw new Error('não é um cadastro do app de campo');
-      cad = c; await KV.set('cad', c); await KV.set('fila', null);
-      logEl.textContent = ''; log(`Carregado: ${c.titulo || c.id}`, 'ok');
-      if (c.schema && c.schema !== S.versao) log(`Cadastro feito com mapa ${c.schema}; preenchedor usa ${S.versao}.`, 'av');
-      atualizaInfo(null);
-    } catch (err) { log('Arquivo inválido: ' + err.message, 'er'); }
+    try { await carregar(JSON.parse(await f.text())); } catch (err) { log('Arquivo inválido: ' + err.message, 'er'); }
   });
 
-  window.__cadx = { abrir: () => mostrar(true) };
+  const api = {
+    versao: VERSAO,
+    abrir: () => mostrar(true),
+    carregar,
+    preencher: () => { if (fase === 'preenchendo') return 'já em andamento'; preencher(); return 'iniciado'; },
+    enviarFotos: async (auto = true) => { $('#cadx-auto').checked = !!auto; const fila = await KV.get('fila'); if (fila && cad && fila.cad === cad.id) { fila.ativo = !!auto; await KV.set('fila', fila); } enviaFoto(); return 'enviando'; },
+    parar: () => { parar = true; return 'ok'; },
+    verificar,
+    estado: async () => ({ versao: VERSAO, tela: naTelaDoLaudo() ? 'laudo' : location.pathname, laudo: naTelaDoLaudo() ? osDaTela() : null, abasLiberadas: abasLiberadas(), cad: cad ? { titulo: cad.titulo, campos: Object.keys(cad.dados || {}).length, fotos: (cad.fotos || []).length } : null, fase, resultado: ultimo, fila: await KV.get('fila'), sujo: !!window.is_dirty, log: logEl.innerText.slice(-4000) }),
+  };
+  window.__cadx = api;
 
   /* ---------- início ---------- */
-  function carregaSchema() {
-    if (window.SIMIL_SCHEMA) return Promise.resolve(window.SIMIL_SCHEMA);
-    return new Promise((ok, err) => { const s = document.createElement('script'); s.src = BASE + 'schema.js?v=' + Date.now(); s.onload = () => ok(window.SIMIL_SCHEMA); s.onerror = () => err(new Error('schema.js')); document.head.appendChild(s); });
-  }
+  const script = (n, chk) => chk() ? Promise.resolve() : new Promise((ok, err) => { const s = document.createElement('script'); s.src = BASE + n + '?v=' + Date.now(); s.onload = ok; s.onerror = () => err(new Error(n)); document.head.appendChild(s); });
   (async () => {
     mostrar(!window.CADX_MODO);
-    try { S = await carregaSchema(); } catch { log('Não consegui baixar schema.js de ' + BASE, 'er'); return; }
+    try { await script('schema.js', () => window.SIMIL_SCHEMA); await script('geo.js', () => window.CADX_GEO); S = window.SIMIL_SCHEMA; G = window.CADX_GEO; }
+    catch (e) { log('Não consegui baixar ' + e.message + ' de ' + BASE, 'er'); return; }
     cad = await KV.get('cad');
     if (cad) log(`Cadastro em memória: ${cad.titulo || cad.id}`);
     if (!naTelaDoLaudo()) log('Abra Laudo Avaliação › Unidade Isolada Construção › Criar/Pesquisar Laudo.', 'av');
-    const retomou = await retomaFotos();
-    if (!retomou) atualizaInfo(await KV.get('fila'));
+    if (!await retomaFotos()) atualizaInfo(await KV.get('fila'));
   })();
 })();
