@@ -61,8 +61,9 @@ let cad = null, aba = 'identificacao', tSalvar = null, ultimaPos = null;
 const urls = new Map();
 const verEsc = () => localStorage.getItem('cadx-esc') === '1';
 const abasVisiveis = () => S.abas.filter(a => !a.escritorio || verEsc());
-const vazio = v => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && v.lat == null);
-const camposDe = a => a.campos.filter(c => c[0] !== '§' && !(c[0] in S.FIXOS));
+const vazio = v => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && v.lat == null && !v.id);
+const visivel = k => k !== '§' && !(k in S.FIXOS) && (verEsc() || !S.ESCRITORIO.includes(k));
+const camposDe = a => a.campos.filter(c => visivel(c[0]));
 const feitos = (a, d = cad.dados) => camposDe(a).filter(c => !vazio(d[c[0]])).length;
 function pct(c) { const as = abasVisiveis(); const t = as.reduce((s, a) => s + camposDe(a).length, 0); const f = as.reduce((s, a) => s + feitos(a, c.dados || {}), 0); return t ? Math.round(f * 100 / t) : 0; }
 
@@ -143,12 +144,13 @@ function render() {
   if (aba === 'fotos') return renderFotos(m);
   const a = S.abas.find(x => x.id === aba);
   if (a.escritorio) m.append(h('p', { class: 'esc' }, 'Aba normalmente preenchida no escritório.'));
-  let box = null;
-  for (const c of a.campos) {
-    if (c[0] === '§') { m.append(h('h2', {}, c[1])); box = m.appendChild(h('div', { class: 'card' })); continue; }
-    if (c[0] in S.FIXOS) continue;
-    if (!box) box = m.appendChild(h('div', { class: 'card' }));
-    box.append(campo(c));
+  // agrupa por seção e só desenha seções com algum campo visível
+  const secoes = []; let sec = { titulo: null, campos: [] }; secoes.push(sec);
+  for (const c of a.campos) { if (c[0] === '§') secoes.push(sec = { titulo: c[1], campos: [] }); else if (visivel(c[0])) sec.campos.push(c); }
+  for (const s of secoes) {
+    if (!s.campos.length) continue;
+    if (s.titulo) m.append(h('h2', {}, s.titulo));
+    m.append(h('div', { class: 'card' }, s.campos.map(campo)));
   }
 }
 function campo([k, rot, tipo, , opts]) {
@@ -175,9 +177,37 @@ function campo([k, rot, tipo, , opts]) {
     w.append(h('div', { class: 'lb' }, rot), box);
   } else if (tipo === 'gps') {
     w.append(h('div', { class: 'lb' }, rot), campoGPS(k));
+  } else if (tipo === 'selfie') {
+    w.append(h('div', { class: 'lb' }, rot), campoSelfie(k));
   }
+  if (k === 'doc_comarca' && !v && cad.dados.end_municipio) w.querySelector('input').placeholder = `Ex.: ${cad.dados.end_municipio} (confira a comarca da matrícula)`;
   return w;
 }
+
+/* ---------- selfie (Relação Geral › Autorretrato) ---------- */
+function campoSelfie(k) {
+  const v = cad.dados[k];
+  const box = h('div', { class: 'row', style: 'align-items:flex-start;gap:12px' });
+  if (v && v.id) {
+    const img = h('img', { alt: 'selfie', style: 'width:96px;height:128px;object-fit:cover;border-radius:10px;background:#000' });
+    urlFoto(v).then(u => img.src = u);
+    box.append(img, h('div', { class: 'grow', style: 'display:grid;gap:8px' },
+      h('div', { class: 'mute' }, new Date(v.hora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) + (v.municipio ? ` · ${v.municipio} – ${v.uf}` : '')),
+      h('button', { type: 'button', class: 'btn sm', on: { click: () => $('#fSelf').click() } }, 'Tirar outra'),
+      h('button', { type: 'button', class: 'btn sm dan', on: { click: async () => { if (await confirma('Excluir selfie?', '', 'Excluir', true)) { await DB.apagaFoto(v.id); urls.delete(v.id); setV(k, null); render(); } } } }, 'Excluir')));
+  } else box.append(h('button', { type: 'button', class: 'btn pri grow', on: { click: () => $('#fSelf').click() } }, '🤳 Tirar selfie no local'));
+  return box;
+}
+$('#fSelf').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file || !cad) return;
+  const ant = cad.dados.doc_selfie;
+  const s = { id: 's' + uid(), hora: new Date().toISOString() };
+  await DB.gravaFoto(s.id, await G.reduzir(file, 1280));
+  if (ant && ant.id) { await DB.apagaFoto(ant.id); urls.delete(ant.id); }
+  setV('doc_selfie', s); render();
+  try { const p = await posRapida(); Object.assign(s, { lat: p.lat, lon: p.lon, prec: p.prec }); const r = await G.lugar(p.lat, p.lon); Object.assign(s, { municipio: r.municipio, uf: r.uf }); } catch { }
+  if (cad && cad.dados.doc_selfie === s) { salvar(); if (aba === 'documento') render(); }
+});
 
 /* ---------- coordenadas automáticas ---------- */
 const lendo = new Set();
@@ -224,7 +254,7 @@ async function preencheLugar(k, l) {
     if (!cad || cad.id !== id) return;
     const v = { ...cad.dados[k], municipio: r.municipio, uf: r.uf }; delete v.geoPend; cad.dados[k] = v;
     // sugere o endereço só nos campos ainda vazios
-    const map = { end_municipio: r.municipio, end_uf: r.uf, end_bairro: r.bairro, end_logradouro: r.logradouro, end_cep: r.cep };
+    const map = { end_municipio: r.municipio, end_uf: r.uf, end_bairro: r.bairro, end_logradouro: r.logradouro, end_cep: r.cep, doc_uf: r.uf };
     const novos = Object.entries(map).filter(([kk, vv]) => vv && vazio(cad.dados[kk]));
     novos.forEach(([kk, vv]) => cad.dados[kk] = vv);
     salvar(); if (aba === 'identificacao') render();
@@ -310,7 +340,9 @@ addEventListener('online', resolvePendentes);
 async function pacote(c) {
   const fotos = [];
   for (const f of c.fotos || []) { const b = await DB.foto(f.id); fotos.push({ ...f, img: b ? await G.blobParaDataURL(b) : null }); }
-  return { ...c, app: 'cadastroscx', formato: FORMATO, schema: S.versao, exportadoEm: new Date().toISOString(), fotos };
+  const docs = []; const sf = c.dados && c.dados.doc_selfie;
+  if (sf && sf.id) { const b = await DB.foto(sf.id); if (b) docs.push({ tipo: S.DOC_SELFIE, nome: 'selfie.jpg', ref: 'doc_selfie', img: await G.blobParaDataURL(b) }); }
+  return { ...c, app: 'cadastroscx', formato: FORMATO, schema: S.versao, exportadoEm: new Date().toISOString(), fotos, docs };
 }
 const nomeArq = t => (t || 'cadastro').normalize('NFD').replace(/\p{M}/gu, '').replace(/[^\w-]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
 async function compartilha(obj, nome) {
@@ -346,7 +378,9 @@ $('#fImp').addEventListener('change', async e => {
     if (ex && !await confirma('Substituir?', `“${c.titulo}” já existe neste aparelho (alterado em ${new Date(ex.atualizado).toLocaleString('pt-BR')}). Substituir pela versão do arquivo?`, 'Substituir', true)) continue;
     if (ex) for (const fo of ex.fotos || []) if (fo.id) await DB.apagaFoto(fo.id);
     for (const fo of c.fotos || []) { if (!fo.id) fo.id = 'f' + uid(); if (fo.img) { await DB.gravaFoto(fo.id, G.dataURLparaBlob(fo.img)); delete fo.img; } }
-    delete c.exportadoEm; c.formato = FORMATO; await DB.gravar(c); n++;
+    if (ex && ex.dados && ex.dados.doc_selfie && ex.dados.doc_selfie.id) await DB.apagaFoto(ex.dados.doc_selfie.id);
+    for (const d of c.docs || []) if (d.ref && d.img && c.dados[d.ref] && c.dados[d.ref].id) await DB.gravaFoto(c.dados[d.ref].id, G.dataURLparaBlob(d.img));
+    delete c.docs; delete c.exportadoEm; c.formato = FORMATO; await DB.gravar(c); n++;
   }
   toast(n ? `${n} cadastro(s) carregado(s)` : 'Nada carregado');
   if (lst.length === 1 && n) abrir(lst[0].id); else telaLista();
@@ -365,7 +399,7 @@ $('#bMenu').addEventListener('click', async () => {
   if (r === 'simil') location.href = 'preencher.html';
   if (r === 'esc') { localStorage.setItem('cadx-esc', esc ? '0' : '1'); cad ? (aba = abasVisiveis().some(a => a.id === aba) ? aba : 'identificacao', render()) : telaLista(); }
   if (r === 'ren') { const t = await folha({ titulo: 'Renomear', campo: { valor: cad.titulo }, acoes: [{ rot: 'Salvar', pri: true }, { rot: 'Cancelar', valor: false }] }); if (t) { cad.titulo = t; $('#hTitulo').textContent = t; salvar(); } }
-  if (r === 'del' && await confirma('Excluir cadastro?', 'Apaga os dados e as fotos deste aparelho. Exporte antes se precisar.', 'Excluir', true)) { const c = cad; for (const f of c.fotos) await DB.apagaFoto(f.id); await DB.apagar(c.id); cad = null; telaLista(); }
+  if (r === 'del' && await confirma('Excluir cadastro?', 'Apaga os dados e as fotos deste aparelho. Exporte antes se precisar.', 'Excluir', true)) { const c = cad; for (const f of c.fotos) await DB.apagaFoto(f.id); if (c.dados.doc_selfie && c.dados.doc_selfie.id) await DB.apagaFoto(c.dados.doc_selfie.id); await DB.apagar(c.id); cad = null; telaLista(); }
 });
 $('#bVoltar').addEventListener('click', telaLista);
 document.addEventListener('visibilitychange', () => { if (document.hidden && cad) { clearTimeout(tSalvar); DB.gravar(cad); } });

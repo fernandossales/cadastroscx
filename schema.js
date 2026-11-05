@@ -217,16 +217,15 @@
     ]},
     { id: 'documento', titulo: 'Documentos', campos: [
       ['§', 'Matrícula da unidade'],
-      ['doc_cnm', 'Código Nacional de Matrícula (CNM)', 't', 'codigoNacionalMatricula'],
       ['doc_mat', 'Número da matrícula', 't', 'numeroUnidade'],
       ['doc_oficio', 'Ofício/Zona', 't', 'cadastroUnidade'],
       ['doc_uf', 'UF', 's', 'ufUnidade', UF],
-      ['§', 'Matrícula mãe do empreendimento'],
-      ['doc_cnm_mae', 'CNM', 't', 'codigoNacionalMatriculaEmpreendimento'],
-      ['doc_mat_mae', 'Número da matrícula', 't', 'numeroEmpreendimento'],
-      ['doc_oficio_mae', 'Ofício/Zona', 't', 'cadastroEmpreendimento'],
-      ['doc_uf_mae', 'UF', 's', 'ufEmpreendimento', UF],
-      ['§', 'Informações complementares'],
+      ['doc_comarca', 'Comarca', 'ac', 'municipioUnidade_input'],
+      // CNM e matrícula mãe: nunca preenchidos (não mapeados)
+      ['§', 'Relação geral de documentos'],
+      ['doc_selfie', 'Autorretrato (selfie) do vistoriador', 'selfie', null],
+      ['§', 'Escritório'],
+      ['doc_regressao', 'Equação de regressão', 'a', 'equacaoRegressao'],
       ['doc_info', 'Informações complementares', 'a', 'outrosComplemento'],
     ]},
     { id: 'pesquisa', titulo: 'Requisitos', campos: [
@@ -256,7 +255,13 @@
   // valores sempre iguais: não aparecem no app e o preenchedor aplica sempre
   const FIXOS = { id_interessado: 'Cliente Agência ou de CCA', id_sigilo: '#INTERNO.TODOS' };
 
-  const S = { versao: '2026-11-05b', pagina: '/simil/pages/laudo/construcao/cadastrarlaudo.xhtml', abas, AMBIENTES, MAX, FIXOS, FOTO_DESC_MAX: 50 };
+  // campos preenchidos só no escritório: escondidos no app (aparecem com "Mostrar abas do escritório")
+  const ESCRITORIO = ['doc_regressao', 'doc_info'];
+  // tipo do documento na "Relação Geral" (aba Doc./Finalização)
+  const DOC_SELFIE = 'Autorretrato (Selfie)';
+  const DOCS_ESCRITORIO = ['Matrícula da Unidade', 'Modelo de Regressão'];
+
+  const S = { versao: '2026-11-05c', pagina: '/simil/pages/laudo/construcao/cadastrarlaudo.xhtml', abas, AMBIENTES, MAX, FIXOS, ESCRITORIO, DOC_SELFIE, DOCS_ESCRITORIO, FOTO_DESC_MAX: 50 };
   if (typeof window !== 'undefined') window.SIMIL_SCHEMA = S;
   if (typeof module !== 'undefined') module.exports = S;
 })();

@@ -1,12 +1,14 @@
 /* Preenchedor do SIMIL a partir do JSON do app de campo (cadastroscx).
    Roda dentro de https://www.simil.caixa.gov.br — Laudo de Avaliação » Unidade Isolada Construção.
    Carregado pelo favorito, pelo Tampermonkey ou pela skill simil-laudo (Claude no Chrome).
-   Nunca clica em Gravar, Finalizar ou Cancelar — só em "Adicionar Foto".
+   Nunca clica em Gravar, Finalizar ou Cancelar — só em "Adicionar Foto" e "Relacionar".
 
    API para automação (window.__cadx):
      carregar(obj)        -> carrega um cadastro (objeto JSON)
      preencher()          -> inicia o preenchimento e volta na hora; acompanhe com estado()
-     enviarFotos(auto)    -> envia a próxima foto (a página recarrega); com auto=true segue a cada recarga
+     tipoAnexo(t)         -> escolhe o tipo do próximo anexo do escritório; depois file_upload no input "cadx anexo"
+     docs()               -> documentos que serão relacionados (selfie do campo + anexos do escritório)
+     enviarFotos(auto)    -> envia documentos e depois fotos, 1 por recarga; com auto=true segue a cada recarga
      estado()             -> { versao, tela, laudo, abasLiberadas, cad, fase, resultado, fila, log } */
 (function () {
   if (window.__cadx) { window.__cadx.abrir(); return; }
@@ -77,7 +79,8 @@
     <div class="info" id="cadx-info">Nenhum cadastro carregado.</div>
     <button class="bt" data-a="carregar">1 · Carregar JSON do celular</button>
     <button class="bt pri" data-a="preencher" disabled>2 · Preencher campos</button>
-    <button class="bt" data-a="fotos" disabled>3 · Enviar fotos</button>
+    <div style="display:grid;gap:6px;border:1px dashed #c9d1ce;border-radius:8px;padding:8px"><b style="font-size:12px">Anexos do escritório (Relação Geral)</b><select id="cadx-tipo" class="bt"></select><button class="bt" data-a="anexar">+ Escolher arquivo(s)…</button><div id="cadx-docs" style="font-size:12px"></div></div>
+    <button class="bt" data-a="fotos" disabled>3 · Enviar documentos e fotos</button>
     <label><input type="checkbox" id="cadx-carimbo" checked> carimbar data, coordenada e município nas fotos</label>
     <label><input type="checkbox" id="cadx-auto" checked> continuar as fotos sozinho a cada recarga</label>
     <button class="bt" data-a="parar">Parar</button>
@@ -86,7 +89,8 @@
   </div>`;
   const pill = document.createElement('button'); pill.id = 'cadx-pill'; pill.textContent = 'Cadastro de campo';
   const arq = document.createElement('input'); arq.type = 'file'; arq.accept = '.json,application/json'; arq.id = 'cadx-arquivo'; arq.setAttribute('aria-label', 'cadx arquivo json'); arq.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px';
-  document.body.append(box, pill, arq);
+  const anx = document.createElement('input'); anx.type = 'file'; anx.multiple = true; anx.id = 'cadx-anexo'; anx.setAttribute('aria-label', 'cadx anexo'); anx.style.cssText = arq.style.cssText;
+  document.body.append(box, pill, arq, anx);
   const $ = s => box.querySelector(s);
   const logEl = $('#cadx-log');
   const log = (m, c = '') => { const d = document.createElement('div'); if (c) d.className = c; d.textContent = m; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; };
@@ -102,14 +106,14 @@
   function atualizaInfo(fila) {
     const i = $('#cadx-info');
     if (!cad) { i.textContent = 'Nenhum cadastro carregado.'; return; }
-    const n = Object.keys(cad.dados || {}).length, f = (cad.fotos || []).length;
+    const n = Object.keys(cad.dados || {}).length, f = envios().length, nd = (cad.docs || []).length;
     i.innerHTML = '';
     const b = document.createElement('b'); b.textContent = cad.titulo || cad.id; i.appendChild(b);
-    i.appendChild(document.createTextNode(`${n} campos · ${f} fotos` + (fila && fila.cad === cad.id ? ` · fotos enviadas: ${fila.prox}/${f}` : '')));
+    i.appendChild(document.createTextNode(`${n} campos · ${nd} documento(s) · ${(cad.fotos || []).length} fotos` + (fila && fila.cad === cad.id ? ` · enviados: ${fila.prox}/${f}` : '')));
     $('[data-a=preencher]').disabled = !naTelaDoLaudo();
     $('[data-a=preencher]').textContent = naTelaDoLaudo() && !abasLiberadas() ? '2 · Preencher OS (laudo novo)' : '2 · Preencher campos';
     $('[data-a=fotos]').disabled = !abasLiberadas() || !f;
-    $('[data-a=fotos]').textContent = fila && fila.cad === cad.id && fila.prox > 0 && fila.prox < f ? `3 · Continuar fotos (${fila.prox + 1} de ${f})` : `3 · Enviar fotos (${f})`;
+    $('[data-a=fotos]').textContent = fila && fila.cad === cad.id && fila.prox > 0 && fila.prox < f ? `3 · Continuar envios (${fila.prox + 1} de ${f})` : `3 · Enviar documentos e fotos (${f})`;
   }
 
   /* ---------- preencher ---------- */
@@ -171,7 +175,8 @@
       e.focus(); e.value = v; ['input', 'keydown', 'keyup'].forEach(t => ev(e, t));
       await sleep(900); await ocioso();
       const pan = document.getElementById(e.id.replace(/_input$/, '_panel'));
-      const item = pan && [...pan.querySelectorAll('li')].find(li => norm(li.textContent) === norm(v) || norm(li.getAttribute('data-item-value')) === norm(v));
+      const lis = pan ? [...pan.querySelectorAll('li')] : [];
+      const item = lis.find(li => norm(li.textContent) === norm(v) || norm(li.getAttribute('data-item-value')) === norm(v)) || lis.find(li => norm(li.textContent).startsWith(norm(v))) || (lis.length === 1 ? lis[0] : null);
       if (item) { item.click(); await ocioso(); res.ok++; } else res.opc.push(`${nome}: sugestão "${v}" não apareceu`);
       return;
     }
@@ -204,7 +209,7 @@
       for (const c of a.campos) {
         if (parar) { log('Parado.', 'av'); return fim(res); }
         if (c[0] === '§') continue;
-        if (soOS !== c[0].startsWith('os_')) continue;
+        if (soOS !== c[0].startsWith('os_') || c[2] === 'selfie') continue;
         const v = (S.FIXOS && c[0] in S.FIXOS) ? S.FIXOS[c[0]] : cad.dados[c[0]];
         if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length && c[2] !== 'cg' && c[2] !== 'k')) continue;
         log(`… ${a.titulo}: ${c[1]}`);
@@ -225,59 +230,84 @@
     return res;
   }
 
-  /* ---------- fotos ---------- */
-  async function arquivoDaFoto(f, i) {
-    const nome = `foto_${String(i + 1).padStart(2, '0')}.jpg`;
-    let blob = G.dataURLparaBlob(f.img);
-    if ($('#cadx-carimbo').checked) { const l = G.linhasCarimbo(f); if (l.length) blob = await G.carimbar(blob, l); }
-    return new File([blob], nome, { type: 'image/jpeg' });
+  /* ---------- envios: documentos (Relação Geral) e fotos — 1 por recarga ---------- */
+  // lista única: primeiro os documentos (selfie do campo + anexos do escritório), depois as fotos
+  const envios = () => [...(cad.docs || []).map(d => ({ k: 'doc', ...d })), ...(cad.fotos || []).map((f, i) => ({ k: 'foto', n: i + 1, ...f }))];
+  async function arquivoDe(it) {
+    if (it.k === 'doc') { const b = G.dataURLparaBlob(it.img); return new File([b], it.nome || 'documento', { type: b.type }); }
+    let blob = G.dataURLparaBlob(it.img);
+    if ($('#cadx-carimbo').checked) { const l = G.linhasCarimbo(it); if (l.length) blob = await G.carimbar(blob, l); }
+    return new File([blob], `foto_${String(it.n).padStart(2, '0')}.jpg`, { type: 'image/jpeg' });
   }
-  async function enviaFoto() {
-    if (!cad || !cad.fotos || !cad.fotos.length) return log('Sem fotos no cadastro.', 'er');
-    if (!abasLiberadas()) return log('Grave o laudo (OS) antes de enviar fotos.', 'er');
+  const opcao = (sel, txt) => [...sel.options].find(o => norm(o.textContent) === norm(txt));
+  async function enviaItem() {
+    const lst = cad ? envios() : [];
+    if (!lst.length) return log('Nada para enviar (sem documentos nem fotos).', 'er');
+    if (!abasLiberadas()) return log('Grave o laudo (OS) antes de enviar documentos e fotos.', 'er');
     let fila = await KV.get('fila');
     const os = osDaTela();
     if (!fila || fila.cad !== cad.id || fila.os !== os) fila = { cad: cad.id, os, prox: 0, ativo: true };
-    if (fila.prox >= cad.fotos.length) { log('Todas as fotos já foram enviadas para este laudo.', 'ok'); fila.ativo = false; fase = 'concluido'; await KV.set('fila', fila); return atualizaInfo(fila); }
-    const i = fila.prox, f = cad.fotos[i];
-    if (!f.img) { log(`Foto ${i + 1} sem imagem no JSON — pulada.`, 'av'); fila.prox++; await KV.set('fila', fila); return enviaFoto(); }
-    const P = painel('foto');
-    const sel = achar('foto', 'ambienteFoto'), desc = achar('foto', 'outros'), inp = achar('foto', 'foto_firefox');
-    const bt = P && P.querySelector('[id$="botaoAdicionarFotos"]');
-    if (!sel || !inp || !bt) { log('Campos da aba Fotos não encontrados.', 'er'); return; }
-    const op = [...sel.options].find(o => norm(o.textContent) === norm(f.amb || 'Outros, Vide Inf. Compl.'));
-    if (!op) { log(`Foto ${i + 1}: referência "${f.amb}" não existe no SIMIL.`, 'er'); return; }
-    fase = 'fotos';
-    sel.value = op.value; ev(sel, 'change'); await ocioso();
-    if (desc) escreve(desc, (f.desc || '').slice(0, desc.maxLength > 0 ? desc.maxLength : 50));
-    const file = await arquivoDaFoto(f, i);
+    fila.total = lst.length;
+    if (fila.prox >= lst.length) { log('Todos os documentos e fotos já foram enviados para este laudo.', 'ok'); fila.ativo = false; fase = 'concluido'; await KV.set('fila', fila); return atualizaInfo(fila); }
+    const i = fila.prox, it = lst[i];
+    if (!it.img) { log(`Item ${i + 1} sem arquivo no JSON — pulado.`, 'av'); fila.prox++; await KV.set('fila', fila); return enviaItem(); }
+    let sel, inp, bt, P, rot;
+    if (it.k === 'doc') {
+      P = painel('documento'); sel = achar('documento', 'documento'); inp = P && P.querySelector('input[type=file]');
+      bt = P && [...P.querySelectorAll('button')].find(b => /Relacionar/i.test(b.textContent));
+      if (!sel || !inp || !bt) { log('Relação Geral (aba Doc./Finalização) não encontrada.', 'er'); return; }
+      const op = opcao(sel, it.tipo); if (!op) { log(`Tipo de documento "${it.tipo}" não existe no SIMIL.`, 'er'); return; }
+      fase = 'envios'; sel.value = op.value; ev(sel, 'change'); await ocioso(); rot = `documento ${it.tipo}`;
+    } else {
+      P = painel('foto'); sel = achar('foto', 'ambienteFoto'); inp = achar('foto', 'foto_firefox');
+      const desc = achar('foto', 'outros'); bt = P && P.querySelector('[id$="botaoAdicionarFotos"]');
+      if (!sel || !inp || !bt) { log('Campos da aba Fotos não encontrados.', 'er'); return; }
+      const op = opcao(sel, it.amb || 'Outros, Vide Inf. Compl.'); if (!op) { log(`Foto ${it.n}: referência "${it.amb}" não existe no SIMIL.`, 'er'); return; }
+      fase = 'envios'; sel.value = op.value; ev(sel, 'change'); await ocioso();
+      if (desc) escreve(desc, (it.desc || '').slice(0, desc.maxLength > 0 ? desc.maxLength : 50));
+      rot = `foto ${it.n} (${it.amb || 'Outros'})`;
+    }
+    const file = await arquivoDe(it);
     const dt = new DataTransfer(); dt.items.add(file);
     inp.files = dt.files; ev(inp, 'change');
     const falso = P.querySelector('[id$="file-falso"],[name$="file-falso"]'); if (falso) falso.value = file.name;
-    fila.prox = i + 1; fila.ativo = $('#cadx-auto').checked && fila.prox < cad.fotos.length; await KV.set('fila', fila);
-    log(`Enviando foto ${i + 1}/${cad.fotos.length} (${f.amb || 'Outros'})… a página vai recarregar.`);
+    fila.prox = i + 1; fila.ativo = $('#cadx-auto').checked && fila.prox < lst.length; await KV.set('fila', fila);
+    log(`Enviando ${i + 1}/${lst.length}: ${rot}… a página vai recarregar.`);
     if (!window.CADX_MODO && fila.ativo) log('Depois da recarga, clique no favorito de novo para seguir.', 'av');
     await sleep(300);
     bt.click();
   }
-  async function retomaFotos() {
+  async function retomaEnvios() {
     const fila = await KV.get('fila');
     atualizaInfo(fila);
     if (!fila || !fila.ativo || !cad || fila.cad !== cad.id) return false;
-    if (osDaTela() !== fila.os) { log('O laudo na tela é outro — envio de fotos pausado.', 'av'); return false; }
+    if (osDaTela() !== fila.os) { log('O laudo na tela é outro — envios pausados.', 'av'); return false; }
     const erro = [...document.querySelectorAll('.ui-messages-error,.ui-message-error,.alert-error')].map(e => e.textContent.trim()).filter(Boolean).join(' / ');
-    if (erro) { fila.prox = Math.max(0, fila.prox - 1); fila.ativo = false; fase = 'erro'; await KV.set('fila', fila); mostrar(true); log('O SIMIL recusou a última foto: ' + erro, 'er'); atualizaInfo(fila); return true; }
-    mostrar(true); log(`Foto ${fila.prox} enviada. Seguindo…`, 'ok'); fase = 'fotos';
+    if (erro) { fila.prox = Math.max(0, fila.prox - 1); fila.ativo = false; fase = 'erro'; await KV.set('fila', fila); mostrar(true); log('O SIMIL recusou o último envio: ' + erro, 'er'); atualizaInfo(fila); return true; }
+    mostrar(true); log(`Item ${fila.prox} enviado. Seguindo…`, 'ok'); fase = 'envios';
     await sleep(1200);
-    if (!parar) enviaFoto();
+    if (!parar) enviaItem();
     return true;
+  }
+
+  /* ---------- anexos do escritório (matrícula, modelo de regressão…) ---------- */
+  async function anexar(files) {
+    if (!cad) { log('Carregue o JSON do cadastro antes de anexar.', 'er'); return []; }
+    const tipo = $('#cadx-tipo').value; const add = [];
+    for (const f of files) { cad.docs = cad.docs || []; const d = { tipo, nome: f.name, img: await G.blobParaDataURL(f), escritorio: true }; cad.docs.push(d); add.push(f.name); }
+    await KV.set('cad', cad); log(`Anexado(s) como “${tipo}”: ${add.join(', ')}`, 'ok'); listaDocs(); atualizaInfo(await KV.get('fila'));
+    return add;
+  }
+  function listaDocs() {
+    const el = $('#cadx-docs'); el.innerHTML = '';
+    (cad && cad.docs || []).forEach((d, i) => { const r = document.createElement('div'); r.textContent = `${i + 1}. ${d.tipo} — ${d.nome}`; if (d.escritorio) { const x = document.createElement('button'); x.textContent = '×'; x.title = 'remover'; x.className = 'bt'; x.style.cssText = 'padding:0 6px;margin-left:6px'; x.onclick = async () => { cad.docs.splice(i, 1); await KV.set('cad', cad); listaDocs(); atualizaInfo(await KV.get('fila')); }; r.appendChild(x); } el.appendChild(r); });
   }
 
   /* ---------- verificar mapeamento ---------- */
   function verificar() {
     logEl.textContent = ''; let ok = 0; const ruins = [];
     for (const a of S.abas) for (const c of a.campos) {
-      if (c[0] === '§') continue; const [, rot, tipo, sel, opts] = c;
+      if (c[0] === '§' || c[2] === 'selfie') continue; const [, rot, tipo, sel, opts] = c;
       let achou;
       if (tipo === 'cg') achou = opts.every(([s]) => achar(a.id, s));
       else if (tipo === 'r' || tipo === 'k') achou = !!painel(a.id) && !!painel(a.id).querySelector('input[name$="-' + sel + '"]');
@@ -296,8 +326,8 @@
     cad = c; await KV.set('cad', c); await KV.set('fila', null);
     logEl.textContent = ''; log(`Carregado: ${c.titulo || c.id}`, 'ok');
     if (c.schema && c.schema !== S.versao) log(`Cadastro feito com mapa ${c.schema}; preenchedor usa ${S.versao}.`, 'av');
-    fase = 'parado'; ultimo = null; atualizaInfo(null);
-    return { titulo: c.titulo, campos: Object.keys(c.dados).length, fotos: (c.fotos || []).length };
+    fase = 'parado'; ultimo = null; listaDocs(); atualizaInfo(null);
+    return { titulo: c.titulo, campos: Object.keys(c.dados).length, docs: (c.docs || []).length, fotos: (c.fotos || []).length };
   }
 
   /* ---------- ações ---------- */
@@ -307,6 +337,7 @@
     if (ac === 'carregar') arq.click();
     if (ac === 'preencher') { a.disabled = true; try { await preencher(); } finally { a.disabled = false; } }
     if (ac === 'fotos') api.enviarFotos($('#cadx-auto').checked);
+    if (ac === 'anexar') anx.click();
     if (ac === 'parar') { parar = true; const fila = await KV.get('fila'); if (fila) { fila.ativo = false; await KV.set('fila', fila); } log('Parado.', 'av'); fase = 'parado'; }
     if (ac === 'verificar') verificar();
   });
@@ -314,16 +345,19 @@
     const f = arq.files[0]; arq.value = ''; if (!f) return;
     try { await carregar(JSON.parse(await f.text())); } catch (err) { log('Arquivo inválido: ' + err.message, 'er'); }
   });
+  anx.addEventListener('change', async () => { const fs = [...anx.files]; anx.value = ''; if (fs.length) await anexar(fs); });
 
   const api = {
     versao: VERSAO,
     abrir: () => mostrar(true),
     carregar,
     preencher: () => { if (fase === 'preenchendo') return 'já em andamento'; preencher(); return 'iniciado'; },
-    enviarFotos: async (auto = true) => { $('#cadx-auto').checked = !!auto; const fila = await KV.get('fila'); if (fila && cad && fila.cad === cad.id) { fila.ativo = !!auto; await KV.set('fila', fila); } enviaFoto(); return 'enviando'; },
+    enviarFotos: async (auto = true) => { $('#cadx-auto').checked = !!auto; const fila = await KV.get('fila'); if (fila && cad && fila.cad === cad.id) { fila.ativo = !!auto; await KV.set('fila', fila); } enviaItem(); return 'enviando'; },
+    tipoAnexo: t => { const o = [...$('#cadx-tipo').options].find(x => norm(x.value) === norm(t)); if (!o) return 'tipo inexistente: ' + t; $('#cadx-tipo').value = o.value; return 'ok: ' + o.value; },
+    docs: () => (cad && cad.docs || []).map(d => ({ tipo: d.tipo, nome: d.nome })),
     parar: () => { parar = true; return 'ok'; },
     verificar,
-    estado: async () => ({ versao: VERSAO, tela: naTelaDoLaudo() ? 'laudo' : location.pathname, laudo: naTelaDoLaudo() ? osDaTela() : null, abasLiberadas: abasLiberadas(), cad: cad ? { titulo: cad.titulo, campos: Object.keys(cad.dados || {}).length, fotos: (cad.fotos || []).length } : null, fase, resultado: ultimo, fila: await KV.get('fila'), sujo: !!window.is_dirty, log: logEl.innerText.slice(-4000) }),
+    estado: async () => ({ versao: VERSAO, tela: naTelaDoLaudo() ? 'laudo' : location.pathname, laudo: naTelaDoLaudo() ? osDaTela() : null, abasLiberadas: abasLiberadas(), cad: cad ? { titulo: cad.titulo, campos: Object.keys(cad.dados || {}).length, docs: (cad.docs || []).length, fotos: (cad.fotos || []).length, envios: envios().length } : null, fase, resultado: ultimo, fila: await KV.get('fila'), sujo: !!window.is_dirty, log: logEl.innerText.slice(-4000) }),
   };
   window.__cadx = api;
 
@@ -336,6 +370,11 @@
     cad = await KV.get('cad');
     if (cad) log(`Cadastro em memória: ${cad.titulo || cad.id}`);
     if (!naTelaDoLaudo()) log('Abra Laudo Avaliação › Unidade Isolada Construção › Criar/Pesquisar Laudo.', 'av');
-    if (!await retomaFotos()) atualizaInfo(await KV.get('fila'));
+    // tipos de documento: os do escritório primeiro, depois todos os do SIMIL
+    const selDoc = achar('documento', 'documento');
+    const tipos = [...new Set([...S.DOCS_ESCRITORIO, ...(selDoc ? [...selDoc.options].map(o => o.textContent.trim()).filter(t => t && !/^Selecione/.test(t)) : [])])];
+    $('#cadx-tipo').innerHTML = tipos.map(t => '<option>' + t.replace(/</g, '&lt;') + '</option>').join('');
+    listaDocs();
+    if (!await retomaEnvios()) atualizaInfo(await KV.get('fila'));
   })();
 })();
