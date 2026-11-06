@@ -178,9 +178,9 @@
       ['em_tel', 'Telefone da administração', 't', 'newTelefeoneConstr'],
       ['em_email', 'E-mail da administração', 't', 'emailCondominio'],
       ['§', 'Ocupação do terreno'],
-      ['em_ocup', 'Ocupação do terreno', 'cg', null, [['j_idt1276-checkbox', 'Prédio(s)'], ['j_idt1279-checkbox', 'Unidades isoladas'], ['j_idt1280-checkbox', 'Lazer'], ['j_idt1281-checkbox', 'Garagens/Estacionamentos'], ['j_idt1282-checkbox', 'Arruamento'], ['j_idt1283-checkbox', 'Comércio'], ['j_idt1284-checkbox', 'Lotes Vagos'], ['j_idt1275-outros-checkbox', 'Outras, Vide Inform. Compl.']]],
+      ['em_ocup', 'Ocupação do terreno', 'cg', null, ['Prédio(s)', 'Unidades isoladas', 'Lazer', 'Garagens/Estacionamentos', 'Arruamento', 'Comércio', 'Lotes Vagos', 'Outras, Vide Inform. Compl.'].map((l, i) => ['leg:Ocupação do Terreno#' + (i + 1), l])],
       ['§', 'Infraestrutura do empreendimento'],
-      ['em_infra', 'Infraestrutura', 'cg', null, [['j_idt1286-checkbox', 'Água Potável'], ['j_idt1287-checkbox', 'Esgoto Sanitário'], ['j_idt1288-checkbox', 'Energia Elétrica'], ['j_idt1289-checkbox', 'Telefone'], ['j_idt1290-checkbox', 'Iluminação Pública'], ['j_idt1291-checkbox', 'Pavimentação'], ['j_idt1292-checkbox', 'Esgoto Pluvial'], ['j_idt1285-outros-checkbox', 'Outras, Vide Inform. Compl.']]],
+      ['em_infra', 'Infraestrutura', 'cg', null, ['Água Potável', 'Esgoto Sanitário', 'Energia Elétrica', 'Telefone', 'Iluminação Pública', 'Pavimentação', 'Esgoto Pluvial', 'Outras, Vide Inform. Compl.'].map((l, i) => ['leg:Infra-Estrutura#' + (i + 1), l])],
       ['§', 'Empreendimento'],
       ['em_padrao', 'Padrão de acabamento', 'r', 'padraoAcabamento', PADRAO],
       ['em_conserv', 'Estado de conservação', 'r', 'estadoConservacaoEmpreendimentoCondominio', ['Em implantação ou na planta', 'Bom (aparência de novo)', 'Bom (aparência de usado)', 'Regular (reparos simples)', 'Regular (reparos importantes)', 'Ruim']],
@@ -308,7 +308,96 @@
   const DOC_SELFIE = 'Autorretrato (Selfie)';
   const DOCS_ESCRITORIO = ['Matrícula da Unidade', 'Modelo de Regressão'];
 
-  const S = { versao: '2026-11-06', pagina: '/simil/pages/laudo/construcao/cadastrarlaudo.xhtml', abas, AMBIENTES, MAX, FIXOS, ESCRITORIO, OCULTOS, SE, ABA_SE, GATILHOS, PADROES, mostra, DOC_SELFIE, DOCS_ESCRITORIO, FOTO_DESC_MAX: 50 };
+  const isolada = { id: 'isolada', nome: 'Casa (unidade isolada)', curto: 'Casa', pagina: '/simil/pages/laudo/construcao/cadastrarlaudo.xhtml', menu: 'Unidade Isolada Construção', abas, OCULTOS, SE, ABA_SE, GATILHOS, PADROES, mostra };
+
+  /* ================= UNIDADE EM PRÉDIO (apartamento) =================
+     Mesma tela, outra página (/simil/pages/laudo/cadastrarlaudo.xhtml). Muda a Unidade I, a aba "Prédio" substitui "Terreno",
+     o Empreendimento é sempre preenchido e os Requisitos não têm as listas.
+     Levantado em 06/11/2026 em 13 laudos de prédio finalizados do usuário. */
+  const pId = id => abas.find(a => a.id === id);
+  const sem = (lista, ...ks) => lista.filter(c => !ks.includes(c[0]));
+  const aUnidadeP = { id: 'avaliandaI', titulo: 'Unidade I', campos: [
+    ['§', 'Vistoria'],
+    ['un_vistoria', 'Vistoria', 'r', 'tipoVistoria', ['Interna e Externa', 'Somente Externa', 'Não Realizada', 'Outras']],
+    ['un_data', 'Data da vistoria', 'dt', 'dataVistoria_input'],
+    ['§', 'Unidade'],
+    ['ap_andar', 'Andar', 't', 'andar'],
+    ['ap_n_pav', 'Pavimentos da unidade', 'n', 'pavimentos'],
+    ['ap_n_unid_andar', 'Unidades no andar', 'n', 'unidades'],
+    ['ap_cobertura', 'Unidade de cobertura', 'cg', null, [['checkUnidadeCobertura', 'É unidade de cobertura']]],
+    ['un_conserv', 'Estado de conservação', 'r', 'estadoConservacao', ['Em construção ou na planta', 'Bom (aparência de novo)', 'Bom (aparência de usado)', 'Regular (reparos simples)', 'Regular (reparos importantes)', 'Ruim']],
+    ['un_padrao', 'Padrão de acabamento', 'r', 'padraoAcabamento', PADRAO],
+    ['ap_uso', 'Uso', 'r', 'uso', ['Residencial', 'Residencial-Comercial/Institucional', 'Comercial/Institucional', 'Outros, Vide Inform. Compl.']],
+    ['ap_paredes_int', 'Paredes internas', 'r', 'paredesInternas', ['Alvenaria', 'Gesso', 'Madeira', 'Concreto', 'Aço', 'Outras']],
+    ['un_ocupacao', 'Ocupação', 'r', 'ocupacao', ['Ocupado', 'Desocupado', 'Não Constatado', 'Desocupado (aparentemente foi ocupado)', 'Outras, Vide Inform. Compl.']],
+    ['§', 'Posição da unidade'],
+    ['ap_posicao', 'Posição física', 'r', 'posicaoFisica', ['Frente/Canto', 'Frente/Meio', 'Fundos/Canto', 'Fundos/Meio', 'Lateral', 'Outros, Vide Inform. Compl.']],
+    ['un_orient', 'Orientação solar', 'r', 'orientacao', FDS],
+    ['un_vista', 'Vista panorâmica', 'r', 'vista', FDS],
+    ['§', 'Vagas de garagem'],
+    ['ap_n_vg_cob_livre', 'Cobertas livres/independentes', 'n', 'cobertasLivre'],
+    ['ap_n_vg_cob_bloq', 'Cobertas bloqueadas/bloqueantes', 'n', 'cobertasBloqueadas'],
+    ['ap_n_vg_desc_livre', 'Descobertas livres/independentes', 'n', 'descobertasLivre'],
+    ['ap_n_vg_desc_bloq', 'Descobertas bloqueadas/bloqueantes', 'n', 'descobertasBloqueadas'],
+  ]};
+  const isoII = pId('avaliandaII');
+  const iAcab = isoII.campos.findIndex(c => c[0] === 'ac_piso_seca');
+  const aUnidadeIIP = { id: 'avaliandaII', titulo: 'Unidade II', campos: [
+    ...isoII.campos.slice(0, iAcab + 1),
+    ['ap_pavimentacao', 'Pavimentos que a unidade ocupa', 's', 'pavimentacao', ['SS', 'T', 'MEZ', 'SLJ', 'PAV', 'COB', 'SS + T', 'T + MEZ', 'T + SLJ', 'T + PAV', 'T + COB', 'PAV + COB', 'SS + T + MEZ', 'SS + T + SLJ', 'SS + T + PAV', 'SS + T + COB', 'T + MEZ +SLJ', 'SS + T + MEZ + SLJ', 'T + MEZ + SLJ + PAV', 'SS + T + MEZ + SLJ + PAV', 'T + MEZ + SLJ + PAV + COB', 'SS + T + MEZ + SLJ + PAV + COB', 'Outros, Vide Inform. Compl.']],
+    ...isoII.campos.slice(iAcab + 1),
+  ]};
+  const aPredio = { id: 'predio', titulo: 'Prédio', campos: [
+    ['§', 'Implantação'],
+    ['pr_insercao', 'Inserção', 'r', 'insercaodoPredio', ['Condomínio', 'Condomínio (parte de outro condomínio)', 'Condomínio (parte de empreendimento não condominial)']],
+    ['pr_n_pav', 'Nº de pavimentos', 'n', 'pavimento'],
+    ['pr_n_unid', 'Nº de unidades', 'n', 'unidade'],
+    ['pr_n_subsolo', 'Nº de subsolos', 'n', 'subsolo'],
+    ['pr_n_elev', 'Nº de elevadores', 'n', 'elevador'],
+    ['§', 'Características'],
+    ['pr_cobertura', 'Cobertura do prédio', 'r', 'caracterizacaoCobertura', ['Cobertura Individual', 'Uso Coletivo', 'Uso Individual e Coletivo', 'Sem Utilização', 'Outros']],
+    ['pr_idade', 'Idade estimada (anos)', 'r', 'idadeEstimada', ['Na Planta', '<= 5', '> 5 <= 10', '> 10 <= 20', '> 20 <= 50', '> 50 <= 100', '> 100']],
+    ['pr_conserv', 'Estado de conservação', 'r', 'estadoConcervacao', ['Em construção ou na planta', 'Bom (aparência de novo)', 'Bom (aparência de usado)', 'Regular (reparos simples)', 'Regular (reparos importantes)', 'Ruim']],
+    ['pr_destinacao', 'Destinação', 'r', 'destinacao', ['Residencial', 'Comercial/Institucional', 'Misto', 'Outros, Vide Inform. Complem.']],
+    ['pr_terreo', 'Ocupação do térreo', 'cg', null, ['Lojas', 'Sala(s)', 'Pilotis', 'Lazer', 'Unidades Residenciais', 'Garagens', 'Outros'].map((l, i) => ['leg:Ocupação do Térreo#' + (i + 1), l])],
+    ['pr_padrao', 'Padrão de acabamento do prédio', 'r', 'padraoAcabamentoPredio', PADRAO],
+    ['§', 'Acabamentos do prédio'],
+    ['pr_circ_piso', 'Área de circulação – pisos', 's', 'piso', PISO],
+    ['pr_circ_parede', 'Área de circulação – paredes', 's', 'parede', PAREDE],
+    ['pr_esq_princ', 'Esquadrias – fachada principal', 's', 'tipoEsquadrias', ESQ],
+    ['pr_esq_demais', 'Esquadrias – demais fachadas', 's', 'paredeEsquadrias', ESQ],
+    ['pr_fach_princ', 'Revestimento – fachada principal', 's', 'tipoFachadas', FACH],
+    ['pr_fach_demais', 'Revestimento – demais fachadas', 's', 'paredeFachadas', FACH],
+  ]};
+  const aRequisitosP = { id: 'pesquisa', titulo: 'Requisitos', campos: pId('pesquisa').campos.filter(c => c[0] === 'rq_atende') };
+  const abasP = [pId('identificacao'), pId('regiao'), aUnidadeP, aUnidadeIIP, aPredio, pId('patologia'), pId('resultado'), pId('especificacao'), pId('documento'), aRequisitosP, pId('laudoCompleto')];
+  const OCULTOS_P = ['end_municipio', 'end_localidade', 'end_bairro', 'end_logradouro', 'end_setor', 'end_quadra', 'end_lote', 'end_conjunto', 'end_tipologia', 'end_compl',
+    'ar_av_desc', 'ar_nav_priv', 'ar_nav_desc', 'ar_nav_com', 'ar_descob', 'lc_edif'];
+  const SE_P = {
+    em_cerc_frente: cercado('em_cerc'), em_cerc_lat: cercado('em_cerc'),
+    eq_armarios: SE.eq_armarios, eq_saloes: SE.eq_saloes, es_justif: SE.es_justif,
+  };
+  const mostraP = (k, d) => !OCULTOS_P.includes(k) && (!SE_P[k] || SE_P[k](d || {}));
+  const PADROES_P = {
+    ...Object.fromEntries(Object.entries(PADROES).filter(([k]) => /^(id_|reg_|un_vistoria|un_padrao|un_orient|un_vista|ac_|em_|pa_|es_|rq_|doc_)/.test(k))),
+    id_categoria: 'Apartamento',
+    reg_serv: PADROES.reg_serv.filter(l => !/^Outros/.test(l)),
+    ap_n_pav: '1', ap_uso: 'Residencial', ap_paredes_int: 'Alvenaria', ap_n_vg_cob_livre: '0', ap_n_vg_desc_bloq: '0',
+    eq: ['Piscina', 'Playground', 'Portaria e/ou Guarita', 'Salão de Festas'], ap_pavimentacao: 'PAV', di_sala: '1', di_coz_serv: '1',
+    pr_insercao: 'Condomínio', pr_n_subsolo: '0', pr_cobertura: 'Sem Utilização', pr_destinacao: 'Residencial', pr_terreo: ['Lazer', 'Unidades Residenciais', 'Garagens'],
+    pr_padrao: 'Normal (forte predominância)', pr_circ_piso: 'Cimentado', pr_circ_parede: 'Pintura/Textura', pr_esq_princ: 'Alumínio', pr_esq_demais: 'Alumínio', pr_fach_princ: 'Pintura/Textura', pr_fach_demais: 'Pintura/Textura',
+    em_ocup: ['Prédio(s)', 'Lazer', 'Garagens/Estacionamentos'], em_infra: PADROES.em_infra.filter(l => !/^Outras/.test(l)),
+  };
+  const predio = { id: 'predio', nome: 'Apartamento (unidade em prédio)', curto: 'Apartamento', pagina: '/simil/pages/laudo/cadastrarlaudo.xhtml', menu: 'Unidade em Prédio', abas: abasP, OCULTOS: OCULTOS_P, SE: SE_P, ABA_SE, GATILHOS, PADROES: PADROES_P, mostra: mostraP };
+  Object.assign(MAX, { ap_andar: 4, ap_n_pav: 2, ap_n_unid_andar: 2, ap_n_vg_cob_livre: 8, ap_n_vg_cob_bloq: 8, ap_n_vg_desc_livre: 8, ap_n_vg_desc_bloq: 8, pr_n_pav: 3, pr_n_unid: 3, pr_n_subsolo: 3, pr_n_elev: 3 });
+
+  const TIPOS = { isolada, predio };
+  const tipo = id => TIPOS[id] || isolada;
+  // tipo pela página do SIMIL aberta
+  const tipoDaPagina = path => /\/laudo\/construcao\//.test(path) ? 'isolada' : /\/laudo\/cadastrarlaudo\.xhtml/.test(path) ? 'predio' : null;
+
+  // compatível com a versão anterior: S.abas/S.PADROES/S.mostra = casa
+  const S = { versao: '2026-11-06b', ...isolada, TIPOS, tipo, tipoDaPagina, AMBIENTES, MAX, FIXOS, ESCRITORIO, DOC_SELFIE, DOCS_ESCRITORIO, FOTO_DESC_MAX: 50 };
   if (typeof window !== 'undefined') window.SIMIL_SCHEMA = S;
   if (typeof module !== 'undefined') module.exports = S;
 })();

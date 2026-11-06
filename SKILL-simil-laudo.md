@@ -21,13 +21,14 @@ Você conduz o Chrome do usuário (Claude in Chrome), que já está logado no SI
 2. **Ferramentas.** Carregue de uma vez: `select:mcp__claude-in-chrome__tabs_context_mcp,mcp__claude-in-chrome__tabs_create_mcp,mcp__claude-in-chrome__navigate,mcp__claude-in-chrome__javascript_tool,mcp__claude-in-chrome__find,mcp__claude-in-chrome__file_upload,mcp__claude-in-chrome__computer`.
 3. **SIMIL.** `tabs_context_mcp`; use a aba do SIMIL se houver, senão crie uma e abra `https://www.simil.caixa.gov.br/simil/pages/inicial/telaInicial.xhtml`. Confira login (o cabeçalho mostra “Olá <nome>”).
 4. **Abrir o laudo.**
-   - Laudo novo — clique pelo DOM (o menu é suspenso e fecha):
+   - O JSON tem `tipo`: `isolada` (casa → menu **Unidade Isolada Construção**, URL `.../laudo/construcao/cadastrarlaudo.xhtml`) ou `predio` (apartamento → menu **Unidade em Prédio**, URL `.../laudo/cadastrarlaudo.xhtml`). Sem `tipo` = casa.
+   - Laudo novo — clique pelo DOM (o menu é suspenso e fecha); troque o nome do submenu conforme o tipo:
      ```js
-     const g=[...document.querySelectorAll('li')].find(l=>/^Unidade Isolada\s*Constru/.test(l.querySelector(':scope>a,:scope>span')?.textContent.trim()||''));
+     const g=[...document.querySelectorAll('li')].find(l=>/^Unidade Isolada\s*Constru/.test(l.querySelector(':scope>a,:scope>span')?.textContent.trim()||''));   // prédio: /^Unidade em Pr/
      [...g.querySelectorAll('a')].find(a=>a.textContent.trim()==='Criar Laudo').click()
      ```
-     Se não achar, use os ids: `formMenu-j_idt19-j_idt29-j_idt32-itemMenu`.
-   - Laudo existente: peça ao usuário para abri-lo (Pesquisar Laudo › editar) e confirme a URL `.../laudo/construcao/...xhtml`.
+     Se não achar, use os ids: casa `formMenu-j_idt19-j_idt29-j_idt32-itemMenu`; prédio `formMenu-j_idt19-j_idt21-j_idt27-itemMenu`.
+   - Laudo existente: peça ao usuário para abri-lo (Pesquisar Laudo › editar) e confirme a URL do tipo certo. O preenchedor recusa cadastro de casa em tela de prédio e vice-versa.
 5. **Injetar o preenchedor.**
    ```js
    var s=document.createElement('script');s.src='https://fernandossales.github.io/cadastroscx/simil-preencher.js?v='+Date.now();document.body.appendChild(s);

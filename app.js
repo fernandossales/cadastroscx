@@ -62,13 +62,15 @@ const urls = new Map();
 const verEsc = () => localStorage.getItem('cadx-esc') === '1';
 const dadosAtuais = d => d || (cad && cad.dados) || {};
 // aba some se for do escritório (sem o modo escritório) ou se a regra dela não vale (ex.: Laudo Completo só no modelo Completo)
-const abasVisiveis = d => S.abas.filter(a => (!a.escritorio || verEsc()) && (!S.ABA_SE[a.id] || S.ABA_SE[a.id](dadosAtuais(d))));
+// tipo do laudo do cadastro (casa = unidade isolada; apartamento = unidade em prédio). Cadastros antigos = casa.
+const TT = c => S.tipo(c && c.tipo);
+const abasVisiveis = (d, t = TT(cad)) => t.abas.filter(a => (!a.escritorio || verEsc()) && (!t.ABA_SE[a.id] || t.ABA_SE[a.id](dadosAtuais(d))));
 const vazio = v => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && v.lat == null && !v.id);
 // campo some se é fixo, se é do escritório, se o SIMIL trava, ou se a condição dele não vale (ex.: Empreendimento só em Condomínio)
-const visivel = (k, d) => k !== '§' && !(k in S.FIXOS) && (verEsc() || !S.ESCRITORIO.includes(k)) && S.mostra(k, dadosAtuais(d));
-const camposDe = (a, d) => a.campos.filter(c => visivel(c[0], d));
-const feitos = (a, d = cad.dados) => camposDe(a, d).filter(c => !vazio(d[c[0]])).length;
-function pct(c) { const d = c.dados || {}; const as = abasVisiveis(d); const t = as.reduce((s, a) => s + camposDe(a, d).length, 0); const f = as.reduce((s, a) => s + feitos(a, d), 0); return t ? Math.round(f * 100 / t) : 0; }
+const visivel = (k, d, t = TT(cad)) => k !== '§' && !(k in S.FIXOS) && (verEsc() || !S.ESCRITORIO.includes(k)) && t.mostra(k, dadosAtuais(d));
+const camposDe = (a, d, t) => a.campos.filter(c => visivel(c[0], d, t));
+const feitos = (a, d = cad.dados, t) => camposDe(a, d, t).filter(c => !vazio(d[c[0]])).length;
+function pct(c) { const d = c.dados || {}, tp = TT(c); const as = abasVisiveis(d, tp); const t = as.reduce((s, a) => s + camposDe(a, d, tp).length, 0); const f = as.reduce((s, a) => s + feitos(a, d, tp), 0); return t ? Math.round(f * 100 / t) : 0; }
 
 function salvar() {
   if (!cad) return;
@@ -80,7 +82,7 @@ function salvar() {
 const setV = (k, v) => {
   if (vazio(v)) delete cad.dados[k]; else cad.dados[k] = v; salvar();
   // mudou um campo que mostra/esconde outros: redesenha mantendo a rolagem
-  if (S.GATILHOS.includes(k)) { const y = window.scrollY; setTimeout(() => { render(); window.scrollTo(0, y); }, 0); }
+  if (TT(cad).GATILHOS.includes(k)) { const y = window.scrollY; setTimeout(() => { render(); window.scrollTo(0, y); }, 0); }
 };
 
 /* ---------- lista ---------- */
@@ -97,7 +99,7 @@ async function telaLista() {
     const p = pct(c), nf = (c.fotos || []).length;
     m.append(h('button', { class: 'card lst', style: 'width:100%;text-align:left', on: { click: () => abrir(c.id) } },
       h('div', { class: 'grow' }, h('div', { class: 't' }, c.titulo || '(sem nome)'),
-        h('div', { class: 's' }, `${p}% · ${nf} foto${nf === 1 ? '' : 's'} · ${new Date(c.atualizado).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` + (c.exportado ? ' · exportado' : '')),
+        h('div', { class: 's' }, `${TT(c).curto} · ${p}% · ${nf} foto${nf === 1 ? '' : 's'} · ${new Date(c.atualizado).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` + (c.exportado ? ' · exportado' : '')),
         h('div', { class: 'pbar' }, h('i', { style: `width:${p}%` }))),
       h('span', { class: 'mute', style: 'font-size:22px' }, '›')));
   }
@@ -106,9 +108,11 @@ async function telaLista() {
     h('button', { class: 'btn pri', on: { click: novo } }, '+ Novo cadastro'));
 }
 async function novo() {
-  const t = await folha({ titulo: 'Novo cadastro', texto: 'Identificação para achar depois (endereço, cliente ou nº da OS).', campo: { dica: 'Ex.: Rua das Flores, 120' }, acoes: [{ rot: 'Criar', pri: true }, { rot: 'Cancelar', valor: false }] });
+  const tipo = await folha({ titulo: 'Tipo do laudo', texto: 'O SIMIL tem telas diferentes para casa e apartamento.', acoes: [...Object.values(S.TIPOS).map((t, i) => ({ rot: t.nome, valor: t.id, pri: i === 0 })), { rot: 'Cancelar', valor: null }] });
+  if (!tipo) return;
+  const t = await folha({ titulo: 'Novo cadastro – ' + S.tipo(tipo).curto, texto: 'Identificação para achar depois (endereço, cliente ou nº da OS).', campo: { dica: 'Ex.: Rua das Flores, 120' }, acoes: [{ rot: 'Criar', pri: true }, { rot: 'Cancelar', valor: false }] });
   if (t === null) return;
-  const c = { app: 'cadastroscx', formato: FORMATO, schema: S.versao, id: 'c' + uid(), titulo: t || 'Cadastro ' + new Date().toLocaleDateString('pt-BR'), criado: new Date().toISOString(), atualizado: new Date().toISOString(), dados: { ...JSON.parse(JSON.stringify(S.PADROES)), un_data: new Date().toLocaleDateString('sv-SE') }, fotos: [] };
+  const c = { app: 'cadastroscx', formato: FORMATO, schema: S.versao, tipo, id: 'c' + uid(), titulo: t || 'Cadastro ' + new Date().toLocaleDateString('pt-BR'), criado: new Date().toISOString(), atualizado: new Date().toISOString(), dados: { ...JSON.parse(JSON.stringify(S.tipo(tipo).PADROES)), un_data: new Date().toLocaleDateString('sv-SE') }, fotos: [] };
   await DB.gravar(c); aba = 'identificacao'; abrir(c.id);
 }
 
@@ -126,7 +130,7 @@ async function abrir(id) {
   if (mig) { cad.formato = FORMATO; await DB.gravar(cad); }
   history.replaceState(null, '', '#' + id);
   $('#bVoltar').classList.remove('hidden'); $('#tabs').classList.remove('hidden'); $('#prog').classList.remove('hidden');
-  $('#hTitulo').textContent = cad.titulo; $('#hStatus').textContent = '';
+  $('#hTitulo').textContent = cad.titulo; $('#hStatus').textContent = TT(cad).curto;
   $('#foot').replaceChildren(
     h('button', { class: 'btn', on: { click: () => $('#fCam').click() } }, '📷 Foto'),
     h('button', { class: 'btn pri', on: { click: () => exportar(cad) } }, 'Exportar'));
@@ -142,14 +146,14 @@ function chips() {
 const irAba = id => { aba = id; render(); window.scrollTo(0, 0); };
 function atualizaContadores() {
   if (!cad) return;
-  for (const b of $('#tabs').children) { const a = S.abas.find(x => x.id === b.dataset.a); b.querySelector('small').textContent = a ? `${feitos(a)}/${camposDe(a).length}` : String(cad.fotos.length); }
+  for (const b of $('#tabs').children) { const a = TT(cad).abas.find(x => x.id === b.dataset.a); b.querySelector('small').textContent = a ? `${feitos(a)}/${camposDe(a).length}` : String(cad.fotos.length); }
   $('#prog i').style.width = pct(cad) + '%';
 }
 function render() {
   chips(); atualizaContadores();
   const m = $('#main'); m.replaceChildren();
   if (aba === 'fotos') return renderFotos(m);
-  const a = S.abas.find(x => x.id === aba);
+  const a = TT(cad).abas.find(x => x.id === aba);
   if (a.escritorio) m.append(h('p', { class: 'esc' }, 'Aba normalmente preenchida no escritório.'));
   // agrupa por seção e só desenha seções com algum campo visível
   const secoes = []; let sec = { titulo: null, campos: [] }; secoes.push(sec);
@@ -170,7 +174,7 @@ function render() {
 function campo([k, rot, tipo, , opts]) {
   const v = cad.dados[k], id = 'f_' + k, max = S.MAX[k];
   const w = h('div', { class: 'f' });
-  if (tipo === 'n' && /^(di_|un_pav|un_vagas|eq_)/.test(k)) {
+  if (tipo === 'n' && /^(di_|un_pav|un_vagas|eq_|ap_n_|pr_n_)/.test(k)) {
     // quantidade: linha compacta com − / + (sem abrir teclado)
     w.className = 'f cnt';
     const num = h('input', { id, class: 'in', type: 'text', inputmode: 'numeric', maxlength: max, value: v ?? '', 'aria-label': rot, on: { input: e => setV(k, e.target.value.replace(/\D/g, '')) } });
@@ -414,7 +418,7 @@ $('#bMenu').addEventListener('click', async () => {
     : [{ rot: 'Carregar cadastro ou backup (JSON)', valor: 'imp', pri: true }, { rot: 'Exportar todos (backup)', valor: 'bkp' }, { rot: (esc ? 'Ocultar' : 'Mostrar') + ' abas do escritório', valor: 'esc' }, { rot: 'Como preencher no SIMIL', valor: 'simil' }, { rot: 'Fechar', valor: null }];
   const r = await folha({ titulo: cad ? cad.titulo : 'Opções', acoes: ac });
   if (r === 'exp') exportar(cad);
-  if (r === 'pad') { let n = 0; for (const [k, v] of Object.entries(S.PADROES)) if (vazio(cad.dados[k])) { cad.dados[k] = JSON.parse(JSON.stringify(v)); n++; } salvar(); render(); toast(n ? `${n} campos vazios receberam o padrão` : 'Nenhum campo vazio com padrão'); }
+  if (r === 'pad') { let n = 0; for (const [k, v] of Object.entries(TT(cad).PADROES)) if (vazio(cad.dados[k])) { cad.dados[k] = JSON.parse(JSON.stringify(v)); n++; } salvar(); render(); toast(n ? `${n} campos vazios receberam o padrão` : 'Nenhum campo vazio com padrão'); }
   if (r === 'imp') $('#fImp').click();
   if (r === 'bkp') exportarTodos();
   if (r === 'simil') location.href = 'preencher.html';

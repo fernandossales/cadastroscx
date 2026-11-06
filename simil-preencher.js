@@ -34,6 +34,12 @@
   }
   function achar(aba, sel) {
     const P = painel(aba); if (!P) return null;
+    if (sel.startsWith('leg:')) {
+      // caixa PrimeFaces pela legenda da seção + posição (os ids j_idt mudam entre casa e prédio)
+      const [leg, n] = sel.slice(4).split('#');
+      const fs = [...P.querySelectorAll('fieldset')].find(f => norm((f.querySelector('legend') || {}).textContent) === norm(leg));
+      return fs ? fs.querySelectorAll('.ui-chkbox')[(parseInt(n, 10) || 1) - 1] || null : null;
+    }
     const [suf, n] = sel.split('#');
     const l = [...P.querySelectorAll('[id$="-' + CSS.escape(suf) + '"]')].filter(e => !/_label$/.test(e.id));
     return l[(parseInt(n, 10) || 1) - 1] || null;
@@ -100,6 +106,8 @@
 
   let S = null, G = null, cad = null, parar = false, fase = 'parado', ultimo = null;
   const naTelaDoLaudo = () => !!document.getElementById('formCadastro-tab-identificacao');
+  // casa (…/laudo/construcao/cadastrarlaudo.xhtml) ou prédio (…/laudo/cadastrarlaudo.xhtml)
+  const tipoTela = () => { const id = S.tipoDaPagina ? S.tipoDaPagina(location.pathname) : 'isolada'; return id && S.TIPOS ? S.TIPOS[id] : null; };
   const abasLiberadas = () => naTelaDoLaudo() && document.querySelectorAll('.ui-tabs-nav li.aba.ui-state-disabled').length <= 1;
   const osDaTela = () => { const v = s => (document.querySelector('#formCadastro-tab-identificacao input[id*="' + s + '"]') || {}).value || ''; return [v('gihabGidur_os'), v('codSolicitante_os'), v('ordenador_os'), v('numeroAnoAutorizacao_os'), v('complementoAS_os'), v('sequencial_os'), v('versao_os')].join('.'); };
 
@@ -206,16 +214,18 @@
     if (soOS) log('Laudo novo: preencho a OS. Depois clique em GRAVAR no SIMIL e rode “Preencher campos” de novo.', 'av');
     const res = { ok: 0, falta: [], opc: [], bloq: [], pulo: [], soOS };
     // padrões do usuário entram só onde o cadastro não tem valor; campos que o SIMIL trava nesta situação são pulados
-    const dados = { ...(S.PADROES ? JSON.parse(JSON.stringify(S.PADROES)) : {}), ...cad.dados };
-    const npad = S.PADROES ? Object.keys(S.PADROES).filter(k => !(k in cad.dados)).length : 0;
+    const T = tipoTela(); if (!T) { log('Não reconheci o tipo do laudo nesta tela.', 'er'); fase = 'erro'; return null; }
+    if ((cad.tipo || 'isolada') !== T.id) { log(`Este cadastro é de ${S.tipo(cad.tipo).curto.toLowerCase()}, mas a tela aberta é de ${T.curto.toLowerCase()}. Abra Laudo Avaliação › ${S.tipo(cad.tipo).menu}.`, 'er'); fase = 'erro'; return null; }
+    const dados = { ...JSON.parse(JSON.stringify(T.PADROES)), ...cad.dados };
+    const npad = Object.keys(T.PADROES).filter(k => !(k in cad.dados)).length;
     if (npad && !soOS) log(`${npad} campos vazios usam o padrão do usuário.`);
-    for (const a of S.abas) {
-      if (S.ABA_SE && S.ABA_SE[a.id] && !S.ABA_SE[a.id](dados)) continue;
+    for (const a of T.abas) {
+      if (T.ABA_SE[a.id] && !T.ABA_SE[a.id](dados)) continue;
       for (const c of a.campos) {
         if (parar) { log('Parado.', 'av'); return fim(res); }
         if (c[0] === '§') continue;
         if (soOS !== c[0].startsWith('os_') || c[2] === 'selfie') continue;
-        if (S.mostra && !S.mostra(c[0], dados)) continue;
+        if (!T.mostra(c[0], dados)) continue;
         const v = (S.FIXOS && c[0] in S.FIXOS) ? S.FIXOS[c[0]] : dados[c[0]];
         if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length && c[2] !== 'cg' && c[2] !== 'k')) continue;
         log(`… ${a.titulo}: ${c[1]}`);
@@ -312,7 +322,8 @@
   /* ---------- verificar mapeamento ---------- */
   function verificar() {
     logEl.textContent = ''; let ok = 0; const ruins = [];
-    for (const a of S.abas) for (const c of a.campos) {
+    const T = tipoTela() || S; log(`Tela: ${T.nome || 'casa'}`);
+    for (const a of T.abas) for (const c of a.campos) {
       if (c[0] === '§' || c[2] === 'selfie') continue; const [, rot, tipo, sel, opts] = c;
       let achou;
       if (tipo === 'cg') achou = opts.every(([s]) => achar(a.id, s));
