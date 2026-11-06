@@ -127,27 +127,28 @@
       ['ar_nav_com', 'Não averbada – áreas comuns', 'n', 'comunsNAverbada'],
       ['ar_descob', 'Privativa descoberta', 'n', 'privUnidadeAverb#2'],
       ['§', 'Divisão interna (quantidades)'],
-      ['di_serv', 'Área(s) de serviço', 'n', 'areaServico'],
-      ['di_serv_desc', 'Área(s) de serviço descoberta(s)', 'n', 'areaServicoDescoberta'],
-      ['di_banh_priv', 'Banheiro(s) privativo(s)', 'n', 'banheirosPrivativos'],
-      ['di_banh_emp', 'Banheiro priv. de empregada', 'n', 'banheiroPrivadoEmpregado'],
-      ['di_banh_serv', 'Banheiro(s) de serviço', 'n', 'banheiroServico'],
-      ['di_banh_soc', 'Banheiro(s) social(is)', 'n', 'banheiroSocial'],
-      ['di_closet', 'Closet(s)', 'n', 'closet'],
-      ['di_copa', 'Copa(s)', 'n', 'copa'],
-      ['di_copa_coz', 'Copa-cozinha conjugadas', 'n', 'copaCozinhaConjugada'],
+      ['di_quarto', 'Quarto(s)', 'n', 'quarto'],
+      ['di_sala', 'Sala(s)', 'n', 'salas'],
       ['di_coz', 'Cozinha(s)', 'n', 'cozinha'],
       ['di_coz_serv', 'Cozinha + A. serviço conjugada', 'n', 'cozinhaAServicoConjugada'],
       ['di_coz_amer', 'Cozinha americana', 'n', 'cozinhaAmericana'],
-      ['di_desp', 'Despensa(s)/Depósito(s)', 'n', 'despensaDeposito'],
-      ['di_escr', 'Escritório/Gabinete', 'n', 'escritforioGabinete'],
-      ['di_hall', 'Hall(s)/Circulação(ões)', 'n', 'hall'],
+      ['di_serv', 'Área(s) de serviço', 'n', 'areaServico'],
+      ['di_banh_priv', 'Banheiro(s) privativo(s)', 'n', 'banheirosPrivativos'],
+      ['di_banh_soc', 'Banheiro(s) social(is)', 'n', 'banheiroSocial'],
       ['di_lavabo', 'Lavabo', 'n', 'lavabo'],
-      ['di_mez', 'Mezanino(s)', 'n', 'mezanino'],
-      ['di_quarto', 'Quarto(s)', 'n', 'quarto'],
-      ['di_quarto_emp', 'Quarto(s) de empregada', 'n', 'quartoEmpregado'],
+      ['di_hall', 'Hall(s)/Circulação(ões)', 'n', 'hall'],
       ['di_sacada', 'Sacada(s)/Varanda(s)', 'n', 'sacadaVaranda'],
-      ['di_sala', 'Sala(s)', 'n', 'salas'],
+      ['di_quarto_emp', 'Quarto(s) de empregada', 'n', 'quartoEmpregado'],
+      ['di_banh_emp', 'Banheiro priv. de empregada', 'n', 'banheiroPrivadoEmpregado'],
+      ['di_desp', 'Despensa(s)/Depósito(s)', 'n', 'despensaDeposito'],
+      ['§', 'Outros cômodos (pouco usados)', 'recolhido'],
+      ['di_serv_desc', 'Área(s) de serviço descoberta(s)', 'n', 'areaServicoDescoberta'],
+      ['di_banh_serv', 'Banheiro(s) de serviço', 'n', 'banheiroServico'],
+      ['di_closet', 'Closet(s)', 'n', 'closet'],
+      ['di_copa', 'Copa(s)', 'n', 'copa'],
+      ['di_copa_coz', 'Copa-cozinha conjugadas', 'n', 'copaCozinhaConjugada'],
+      ['di_escr', 'Escritório/Gabinete', 'n', 'escritforioGabinete'],
+      ['di_mez', 'Mezanino(s)', 'n', 'mezanino'],
       ['di_terraco', 'Terraço(s)', 'n', 'terraco'],
       ['di_outros', 'Descrição de outros cômodos', 'a', 'outros#2'],
     ]},
@@ -256,12 +257,58 @@
   const FIXOS = { id_interessado: 'Cliente Agência ou de CCA', id_sigilo: '#INTERNO.TODOS' };
 
   // campos preenchidos só no escritório: escondidos no app (aparecem com "Mostrar abas do escritório")
-  const ESCRITORIO = ['doc_regressao', 'doc_info'];
+  const ESCRITORIO = ['doc_regressao', 'doc_info', 'id_modelo', 'id_objetivo', 'id_finalidade', 'id_pressup', 'id_atividade', 'id_produto', 'id_linha', 'id_fonte', 'id_categoria'];
+
+  // nunca aparecem: o SIMIL trava ou preenche sozinho (pelo CEP, por cálculo) neste tipo de laudo
+  // (levantado em 06/11/2026 em 19 laudos finalizados do usuário: 0 de 19 preenchidos)
+  const OCULTOS = ['end_municipio', 'end_localidade', 'end_bairro', 'end_logradouro', 'end_setor', 'end_quadra', 'end_lote', 'end_conjunto', 'end_empreend', 'end_compl',
+    'te_lados', 'ar_av_desc', 'ar_nav_priv', 'ar_nav_desc', 'ar_nav_com', 'ar_descob'];
+
+  // aparecem só quando a condição vale (o SIMIL libera o campo nessa situação)
+  const condominio = d => d.un_insercao === 'Condomínio';
+  const temEq = nome => d => (d.eq || []).includes(nome);
+  const cercado = k => d => d[k] && d[k] !== 'Não Possui';
+  const SE = {
+    end_bloco: condominio, end_unidade: condominio, end_tipologia: condominio, ar_av_com: condominio,
+    em_predios: condominio, em_unid: condominio, em_fracao: condominio, em_condom: condominio, em_unid_tip: condominio, em_adm: condominio, em_tel: condominio, em_email: condominio,
+    em_ocup: condominio, em_infra: condominio, em_padrao: condominio, em_conserv: condominio, em_area: condominio, em_testada: condominio, em_posicao: condominio, em_cota: condominio, em_cerc: condominio,
+    em_cerc_frente: d => condominio(d) && cercado('em_cerc')(d), em_cerc_lat: d => condominio(d) && cercado('em_cerc')(d),
+    te_cerc_frente: cercado('te_cerc'), te_cerc_lat: cercado('te_cerc'),
+    eq_armarios: temEq('Armários Embutidos'), eq_saloes: temEq('Outros Salões de Lazer'),
+    es_justif: d => /^Não, Somos/.test(d.es_garantia || ''),
+    rq_gerais: d => /^Não atendeu/.test(d.rq_atende || ''), rq_fgts: d => /^Não atendeu/.test(d.rq_atende || ''),
+  };
+  // abas inteiras condicionadas
+  const ABA_SE = { laudoCompleto: d => d.id_modelo === 'Completo' };
+  // campos cuja mudança mostra/esconde outros
+  const GATILHOS = ['un_insercao', 'eq', 'te_cerc', 'em_cerc', 'es_garantia', 'rq_atende', 'id_modelo'];
+  const mostra = (k, d) => !OCULTOS.includes(k) && (!SE[k] || SE[k](d || {}));
+
+  // valores que o usuário repete em quase todos os laudos (moda dos 19 laudos): um cadastro novo já nasce com eles
+  const TODOS = (l) => l.map(o => Array.isArray(o) ? o[1] : o);
+  const PADROES = {
+    id_modelo: 'Simplificado de uso Restrito', id_objetivo: 'Valor de Compra e Venda', id_finalidade: 'Aquisição', id_pressup: 'Imóvel Considerado na Sua Real Condição',
+    id_atividade: 'A-413', id_produto: '171', id_linha: '67', id_fonte: '30', id_categoria: 'Casa',
+    reg_usos: ['Residencial Unifamiliar'], reg_padrao: 'Normal (forte predominância)', reg_valoriz: 'Sem Destaque', reg_desvaloriz: 'Sem Destaque', reg_via: 'Local', reg_contexto: 'Região Central',
+    un_vistoria: 'Interna e Externa', un_padrao: 'Normal (forte predominância)', un_paredes: 'Alvenaria', un_uso: 'Residencial Unifamiliar', un_orient: 'Favorável', un_vista: 'Favorável',
+    un_insercao: 'Isolado', un_implant: 'Isolada', un_vagas_cob: '0',
+    un_pav_ss: '0', un_pav_terreo: '1', un_pav_mez: '0', un_pav_sobre: '0', un_pav_outros: '0', un_pav_cob: '0',
+    un_esq_princ: 'Alumínio', un_esq_demais: 'Alumínio', un_fach_princ: 'Pintura/Textura', un_fach_demais: 'Pintura/Textura', un_teto: 'Laje', un_cobertura: 'Telha de barro, com laje',
+    eq: ['Não Possui Equipamentos'], ac_piso_molh: 'Cerâmica Comercial', ac_par_molh: 'Cerâmica Comercial', ac_piso_seca: 'Cimentado',
+    di_sala: '1', di_coz: '1', di_serv: '1',
+    te_posicao: 'Meio de Quadra', te_cota: 'Igual ou Acima', te_formato: 'Retangular', te_inclin: 'Plano', te_cerc: 'Total', te_cerc_frente: 'Muro', te_cerc_lat: 'Muro', te_vocacao: 'Residência Unifamiliar',
+    em_padrao: 'Normal (forte predominância)', em_conserv: 'Regular (reparos simples)', em_cota: 'Igual ou Acima', em_cerc: 'Total', em_cerc_frente: 'Muro', em_cerc_lat: 'Muro', em_adm: 'NÃO INFORMADO', em_email: 'NÃO INFORMADO', em_acesso: 'Não',
+    pa_vicios: 'Aparentemente Não Possui', pa_estab: 'Aparentemente Possui', pa_outros: 'Aparentemente Não Possui', pa_habit: 'Aparentemente Possui',
+    es_conform: 'Aparenta Conformidade Com a Documentação', es_garantia: 'Sim, Somos Favoráveis à Aceitação do Imóvel Como Garantia', es_metodo: 'Comparativo de Dados', es_precisao: 'Grau II', es_fundam: 'Grau II', es_perf: 'Sem Destaque', es_oferta: 'Sem Destaque', es_liquidez: 'Sem Destaque',
+    rq_atende: 'Sim, Atendeu', doc_uf: 'CE',
+  };
+  // listas "todas marcadas" vêm do próprio mapa
+  abas.forEach(a => a.campos.forEach(c => { if (['reg_infra', 'reg_serv', 'em_infra'].includes(c[0])) PADROES[c[0]] = TODOS(c[4]); }));
   // tipo do documento na "Relação Geral" (aba Doc./Finalização)
   const DOC_SELFIE = 'Autorretrato (Selfie)';
   const DOCS_ESCRITORIO = ['Matrícula da Unidade', 'Modelo de Regressão'];
 
-  const S = { versao: '2026-11-05c', pagina: '/simil/pages/laudo/construcao/cadastrarlaudo.xhtml', abas, AMBIENTES, MAX, FIXOS, ESCRITORIO, DOC_SELFIE, DOCS_ESCRITORIO, FOTO_DESC_MAX: 50 };
+  const S = { versao: '2026-11-06', pagina: '/simil/pages/laudo/construcao/cadastrarlaudo.xhtml', abas, AMBIENTES, MAX, FIXOS, ESCRITORIO, OCULTOS, SE, ABA_SE, GATILHOS, PADROES, mostra, DOC_SELFIE, DOCS_ESCRITORIO, FOTO_DESC_MAX: 50 };
   if (typeof window !== 'undefined') window.SIMIL_SCHEMA = S;
   if (typeof module !== 'undefined') module.exports = S;
 })();

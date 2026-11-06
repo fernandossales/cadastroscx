@@ -60,12 +60,15 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 let cad = null, aba = 'identificacao', tSalvar = null, ultimaPos = null;
 const urls = new Map();
 const verEsc = () => localStorage.getItem('cadx-esc') === '1';
-const abasVisiveis = () => S.abas.filter(a => !a.escritorio || verEsc());
+const dadosAtuais = d => d || (cad && cad.dados) || {};
+// aba some se for do escritório (sem o modo escritório) ou se a regra dela não vale (ex.: Laudo Completo só no modelo Completo)
+const abasVisiveis = d => S.abas.filter(a => (!a.escritorio || verEsc()) && (!S.ABA_SE[a.id] || S.ABA_SE[a.id](dadosAtuais(d))));
 const vazio = v => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && v.lat == null && !v.id);
-const visivel = k => k !== '§' && !(k in S.FIXOS) && (verEsc() || !S.ESCRITORIO.includes(k));
-const camposDe = a => a.campos.filter(c => visivel(c[0]));
-const feitos = (a, d = cad.dados) => camposDe(a).filter(c => !vazio(d[c[0]])).length;
-function pct(c) { const as = abasVisiveis(); const t = as.reduce((s, a) => s + camposDe(a).length, 0); const f = as.reduce((s, a) => s + feitos(a, c.dados || {}), 0); return t ? Math.round(f * 100 / t) : 0; }
+// campo some se é fixo, se é do escritório, se o SIMIL trava, ou se a condição dele não vale (ex.: Empreendimento só em Condomínio)
+const visivel = (k, d) => k !== '§' && !(k in S.FIXOS) && (verEsc() || !S.ESCRITORIO.includes(k)) && S.mostra(k, dadosAtuais(d));
+const camposDe = (a, d) => a.campos.filter(c => visivel(c[0], d));
+const feitos = (a, d = cad.dados) => camposDe(a, d).filter(c => !vazio(d[c[0]])).length;
+function pct(c) { const d = c.dados || {}; const as = abasVisiveis(d); const t = as.reduce((s, a) => s + camposDe(a, d).length, 0); const f = as.reduce((s, a) => s + feitos(a, d), 0); return t ? Math.round(f * 100 / t) : 0; }
 
 function salvar() {
   if (!cad) return;
@@ -74,7 +77,11 @@ function salvar() {
   clearTimeout(tSalvar);
   tSalvar = setTimeout(async () => { const c = cad; await DB.gravar(c); if (c === cad) { $('#hStatus').textContent = 'salvo'; atualizaContadores(); } }, 350);
 }
-const setV = (k, v) => { if (vazio(v)) delete cad.dados[k]; else cad.dados[k] = v; salvar(); };
+const setV = (k, v) => {
+  if (vazio(v)) delete cad.dados[k]; else cad.dados[k] = v; salvar();
+  // mudou um campo que mostra/esconde outros: redesenha mantendo a rolagem
+  if (S.GATILHOS.includes(k)) { const y = window.scrollY; setTimeout(() => { render(); window.scrollTo(0, y); }, 0); }
+};
 
 /* ---------- lista ---------- */
 async function telaLista() {
@@ -101,7 +108,7 @@ async function telaLista() {
 async function novo() {
   const t = await folha({ titulo: 'Novo cadastro', texto: 'Identificação para achar depois (endereço, cliente ou nº da OS).', campo: { dica: 'Ex.: Rua das Flores, 120' }, acoes: [{ rot: 'Criar', pri: true }, { rot: 'Cancelar', valor: false }] });
   if (t === null) return;
-  const c = { app: 'cadastroscx', formato: FORMATO, schema: S.versao, id: 'c' + uid(), titulo: t || 'Cadastro ' + new Date().toLocaleDateString('pt-BR'), criado: new Date().toISOString(), atualizado: new Date().toISOString(), dados: { un_data: new Date().toLocaleDateString('sv-SE') }, fotos: [] };
+  const c = { app: 'cadastroscx', formato: FORMATO, schema: S.versao, id: 'c' + uid(), titulo: t || 'Cadastro ' + new Date().toLocaleDateString('pt-BR'), criado: new Date().toISOString(), atualizado: new Date().toISOString(), dados: { ...JSON.parse(JSON.stringify(S.PADROES)), un_data: new Date().toLocaleDateString('sv-SE') }, fotos: [] };
   await DB.gravar(c); aba = 'identificacao'; abrir(c.id);
 }
 
@@ -146,17 +153,30 @@ function render() {
   if (a.escritorio) m.append(h('p', { class: 'esc' }, 'Aba normalmente preenchida no escritório.'));
   // agrupa por seção e só desenha seções com algum campo visível
   const secoes = []; let sec = { titulo: null, campos: [] }; secoes.push(sec);
-  for (const c of a.campos) { if (c[0] === '§') secoes.push(sec = { titulo: c[1], campos: [] }); else if (visivel(c[0])) sec.campos.push(c); }
+  for (const c of a.campos) { if (c[0] === '§') secoes.push(sec = { titulo: c[1], recolhido: c[2] === 'recolhido', campos: [] }); else if (visivel(c[0])) sec.campos.push(c); }
   for (const s of secoes) {
     if (!s.campos.length) continue;
+    if (s.recolhido) {
+      // seção pouco usada: fechada, abre sozinha se já tiver algo preenchido
+      const n = s.campos.filter(c => !vazio(cad.dados[c[0]])).length;
+      m.append(h('details', { class: 'card', open: n > 0 }, h('summary', { style: 'font-weight:600;cursor:pointer' }, s.titulo + (n ? ` (${n})` : '')), h('div', { style: 'margin-top:12px' }, s.campos.map(campo))));
+      continue;
+    }
     if (s.titulo) m.append(h('h2', {}, s.titulo));
     m.append(h('div', { class: 'card' }, s.campos.map(campo)));
   }
+  if (!secoes.some(s => s.campos.length)) m.append(h('div', { class: 'empty' }, 'Nada a preencher nesta aba com as opções atuais.'));
 }
 function campo([k, rot, tipo, , opts]) {
   const v = cad.dados[k], id = 'f_' + k, max = S.MAX[k];
   const w = h('div', { class: 'f' });
-  if (tipo === 't' || tipo === 'n' || tipo === 'ac') {
+  if (tipo === 'n' && /^(di_|un_pav|un_vagas|eq_)/.test(k)) {
+    // quantidade: linha compacta com − / + (sem abrir teclado)
+    w.className = 'f cnt';
+    const num = h('input', { id, class: 'in', type: 'text', inputmode: 'numeric', maxlength: max, value: v ?? '', 'aria-label': rot, on: { input: e => setV(k, e.target.value.replace(/\D/g, '')) } });
+    const passo = d => { const n = Math.max(0, (parseInt(num.value, 10) || 0) + d); num.value = String(n); setV(k, num.value); };
+    w.append(h('label', { for: id }, rot), h('div', { class: 'step' }, h('button', { type: 'button', class: 'btn sm', 'aria-label': 'menos', on: { click: () => passo(-1) } }, '−'), num, h('button', { type: 'button', class: 'btn sm', 'aria-label': 'mais', on: { click: () => passo(1) } }, '+')));
+  } else if (tipo === 't' || tipo === 'n' || tipo === 'ac') {
     const num = tipo === 'n' || tipo === 'ac';
     const so = /cep|cpfcnpj/.test(k);
     w.append(h('label', { for: id }, rot), h('input', { id, class: 'in', type: 'text', inputmode: so ? 'numeric' : num ? 'decimal' : null, enterkeyhint: 'next', maxlength: max, value: v ?? '', autocomplete: 'off', autocapitalize: num ? 'off' : 'sentences', on: { input: e => setV(k, e.target.value.trim()) } }));
@@ -390,10 +410,11 @@ $('#fImp').addEventListener('change', async e => {
 $('#bMenu').addEventListener('click', async () => {
   const esc = verEsc();
   const ac = cad
-    ? [{ rot: 'Exportar este cadastro (JSON)', valor: 'exp', pri: true }, { rot: 'Renomear', valor: 'ren' }, { rot: (esc ? 'Ocultar' : 'Mostrar') + ' abas do escritório', valor: 'esc' }, { rot: 'Excluir cadastro', valor: 'del', dan: true }, { rot: 'Fechar', valor: null }]
+    ? [{ rot: 'Exportar este cadastro (JSON)', valor: 'exp', pri: true }, { rot: 'Aplicar padrões nos campos vazios', valor: 'pad' }, { rot: 'Renomear', valor: 'ren' }, { rot: (esc ? 'Ocultar' : 'Mostrar') + ' abas do escritório', valor: 'esc' }, { rot: 'Excluir cadastro', valor: 'del', dan: true }, { rot: 'Fechar', valor: null }]
     : [{ rot: 'Carregar cadastro ou backup (JSON)', valor: 'imp', pri: true }, { rot: 'Exportar todos (backup)', valor: 'bkp' }, { rot: (esc ? 'Ocultar' : 'Mostrar') + ' abas do escritório', valor: 'esc' }, { rot: 'Como preencher no SIMIL', valor: 'simil' }, { rot: 'Fechar', valor: null }];
   const r = await folha({ titulo: cad ? cad.titulo : 'Opções', acoes: ac });
   if (r === 'exp') exportar(cad);
+  if (r === 'pad') { let n = 0; for (const [k, v] of Object.entries(S.PADROES)) if (vazio(cad.dados[k])) { cad.dados[k] = JSON.parse(JSON.stringify(v)); n++; } salvar(); render(); toast(n ? `${n} campos vazios receberam o padrão` : 'Nenhum campo vazio com padrão'); }
   if (r === 'imp') $('#fImp').click();
   if (r === 'bkp') exportarTodos();
   if (r === 'simil') location.href = 'preencher.html';

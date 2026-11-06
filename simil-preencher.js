@@ -205,12 +205,18 @@
     const soOS = !abasLiberadas();
     if (soOS) log('Laudo novo: preencho a OS. Depois clique em GRAVAR no SIMIL e rode “Preencher campos” de novo.', 'av');
     const res = { ok: 0, falta: [], opc: [], bloq: [], pulo: [], soOS };
+    // padrões do usuário entram só onde o cadastro não tem valor; campos que o SIMIL trava nesta situação são pulados
+    const dados = { ...(S.PADROES ? JSON.parse(JSON.stringify(S.PADROES)) : {}), ...cad.dados };
+    const npad = S.PADROES ? Object.keys(S.PADROES).filter(k => !(k in cad.dados)).length : 0;
+    if (npad && !soOS) log(`${npad} campos vazios usam o padrão do usuário.`);
     for (const a of S.abas) {
+      if (S.ABA_SE && S.ABA_SE[a.id] && !S.ABA_SE[a.id](dados)) continue;
       for (const c of a.campos) {
         if (parar) { log('Parado.', 'av'); return fim(res); }
         if (c[0] === '§') continue;
         if (soOS !== c[0].startsWith('os_') || c[2] === 'selfie') continue;
-        const v = (S.FIXOS && c[0] in S.FIXOS) ? S.FIXOS[c[0]] : cad.dados[c[0]];
+        if (S.mostra && !S.mostra(c[0], dados)) continue;
+        const v = (S.FIXOS && c[0] in S.FIXOS) ? S.FIXOS[c[0]] : dados[c[0]];
         if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length && c[2] !== 'cg' && c[2] !== 'k')) continue;
         log(`… ${a.titulo}: ${c[1]}`);
         try { await preencheCampo(a.id, c, v, res); } catch (err) { res.falta.push(`${a.titulo} › ${c[1]} (erro: ${err.message})`); }
